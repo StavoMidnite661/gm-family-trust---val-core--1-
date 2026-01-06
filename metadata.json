@@ -1,0 +1,8 @@
+
+{
+  "name": "GM FAMILY TRUST - VAL Core",
+  "description": "Sovereign Value Attestation Layer for the GM Family Trust. Implements strict sFIAT funding discipline, mechanical TigerBeetle-ready ledgers, and real-time cryptographic integrity monitoring with Sovereign AGI oversight.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
