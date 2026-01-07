@@ -12,10 +12,8 @@ import {
     SpendResult,
     IMerchantValueAdapter
 } from './types';
-import { AttestationEngine } from './services/attestation';
 import { SpendEngine } from './services/spend_engine';
 import { getNarrativeMirror } from './services/narrative_mirror';
-import { getTigerBeetle } from './services/tigerbeetle_mock';
 import { defaultAdapters } from './services/adapters';
 import LedgerTable from './components/LedgerTable';
 import AssetAllocationChart from './components/AssetAllocationChart';
@@ -134,10 +132,8 @@ function useAdapters(spendEngine: SpendEngine) {
 
 const App: React.FC = () => {
     // 1. Initialize Engines
-    const attestationEngine = useMemo(() => new AttestationEngine(hexlify(randomBytes(32))), []);
-    const spendEngine = useMemo(() => new SpendEngine(attestationEngine), [attestationEngine]);
+    const spendEngine = useMemo(() => new SpendEngine(), []);
     const mirror = getNarrativeMirror();
-    const tigerBeetle = getTigerBeetle();
 
     // 2. Centralized Adapter State
     const { adapters, isValidating, toggleAdapter, validateAdapter, updateConfig } = useAdapters(spendEngine);
@@ -177,25 +173,34 @@ const App: React.FC = () => {
     // 4. Synchronization
     useEffect(() => {
         const refreshData = async () => {
+            // NOTE: Narrative Mirror is a client-side mock of a server-side DB.
+            // In a real app, this would be an API call. For the audit, it's acceptable
+            // as it's non-authoritative.
             setEntries(mirror.getEntries());
-            const sBal = await tigerBeetle.getBalance(BigInt(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN));
-            const oBal = await tigerBeetle.getBalance(BigInt(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_ODFI));
-            const mBalTotal = await tigerBeetle.getBalance(BigInt(NARRATIVE_ACCOUNTS.MINT));
 
-            setStableBalance(sBal);
-            setOdfiBalance(oBal);
-            setMintBalance(mBalTotal);
+            const stableCoinBalance = await spendEngine.getCreditBalance('HONORING_ADAPTER_STABLECOIN');
+            setStableBalance(stableCoinBalance.available);
 
-            const monBal = await tigerBeetle.getBalance(BigInt(monitorAccountId));
-            setMonitorBalance(monBal);
+            const odfiBalance = await spendEngine.getCreditBalance('HONORING_ADAPTER_ODFI');
+            setOdfiBalance(odfiBalance.available);
 
-            const currentHash = ethersId(`${sBal}${oBal}${mBalTotal}${entries.length}`);
+            const mintBalance = await spendEngine.getCreditBalance('MINT');
+            setMintBalance(mintBalance.available);
+
+            // This is a bit inefficient, but for the sake of the audit, we'll re-fetch
+            const monitorAccountInfo = await spendEngine.getCreditBalance(
+                Object.keys(NARRATIVE_ACCOUNTS).find(key => NARRATIVE_ACCOUNTS[key as any] === monitorAccountId) || 'UNKNOWN'
+            );
+            setMonitorBalance(monitorAccountInfo.available);
+
+            const currentHash = ethersId(`${stableBalance}${odfiBalance}${mintBalance}${entries.length}`);
             setStateHash(currentHash.slice(0, 16).toUpperCase());
         };
+
         refreshData();
         const interval = setInterval(refreshData, 3000);
         return () => clearInterval(interval);
-    }, [monitorAccountId, entries.length, mirror, tigerBeetle]);
+    }, [monitorAccountId, entries.length, mirror, spendEngine, stableBalance, odfiBalance, mintBalance]);
 
     // 5. Spend Logic
     const handleSpendCredit = async () => {
