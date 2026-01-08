@@ -193,14 +193,14 @@ const App: React.FC = () => {
             );
             setMonitorBalance(monitorAccountInfo.available);
 
-            const currentHash = ethersId(`${stableBalance}${odfiBalance}${mintBalance}${entries.length}`);
+            const currentHash = ethersId(`${stableCoinBalance.available}${odfiBalance.available}${mintBalance.available}${mirror.getEntries().length}`);
             setStateHash(currentHash.slice(0, 16).toUpperCase());
         };
 
         refreshData();
         const interval = setInterval(refreshData, 3000);
         return () => clearInterval(interval);
-    }, [monitorAccountId, entries.length, mirror, spendEngine, stableBalance, odfiBalance, mintBalance]);
+    }, [monitorAccountId, mirror, spendEngine]);
 
     // 5. Spend Logic
     const handleSpendCredit = async () => {
