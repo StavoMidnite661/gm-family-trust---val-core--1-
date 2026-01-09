@@ -1,4 +1,4 @@
-# GM Family Trust — VAL Core
+# SOVR Clearing Protocol — VAL Core
 
 <div align="center">
   <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
@@ -6,125 +6,82 @@
 
 ## Sovereign Value Attestation Layer for the GM Family Trust
 
-**VAL Core** implements strict sFIAT funding discipline, mechanical TigerBeetle-ready ledgers, and real-time cryptographic integrity monitoring with Sovereign AGI oversight.
+**VAL Core** is a **ledger-cleared obligation protocol** where value exists only as the result of finalized mechanical transfers. It implements strict sFIAT funding discipline, a mechanically-enforced authority model, and cryptographic integrity monitoring.
+
+This is not a fintech application. It is a protocol for clearing reality itself.
 
 ---
 
-## What This Is
+## Canonical Authority Model (LOCKED)
 
-VAL Core is a **ledger-cleared obligation network** where value exists only as the result of finalized mechanical transfers. It is part of the broader [SOVR Ecosystem](https://github.com/your-org/sovr-ecosystem) governed by SOVR Development Holdings LLC.
+The SOVR protocol enforces a non-negotiable authority hierarchy. Truth is mechanical, not narrative.
 
-### Core Properties
+1.  **TigerBeetle (`val/clearing/tigerbeetle`)** — The **sole mechanical clearing authority**. All obligations are cleared here first, or they do not exist. Its state is immutable and final.
 
-- **TigerBeetle** — Sole mechanical clearing authority (deterministic, immutable)
-- **Zero Overdraft Protocol** — Balances are mathematical results, never manually adjusted
-- **No Reversals** — Corrections are new obligations, never mutations
-- **Attestation-First** — Legitimacy is proven before clearing
-- **Honoring Adapters** — External fulfillment agents (Stripe, ACH, Instacart, etc.)
+2.  **Backend (`val/core`)** — The **authority gateway**. Orchestrates the clearing flow but holds no authority itself. Translates user intent into ledger commands.
+
+3.  **Honoring Adapters (`val/adapters`)** — **Downstream guests**. Optional external agents (Stripe, Instacart, etc.) that may act upon *already cleared* obligations. They have no authority to approve, deny, or reverse clearing.
+
+4.  **Narrative Mirror (`val/core/narrative-mirror-service.ts`)** — A **read-only observer**. It records the results of cleared transactions for auditing and human-readable logs. It has zero authority and is never consulted for balance checks or clearing decisions.
 
 ---
 
-## Architecture Overview
+## Execution Flow (Enforced)
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         EXTERNAL HONORING AGENTS                            │
-│  (Stripe, ACH, Instacart, Amazon, Visa, Coinbase, etc.)                    │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           CREDIT TERMINAL                                    │
-│  (Intent → Transfer Translator)                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              ATTESTOR                                        │
-│  (Legitimacy Gate — Cryptographic Proof Validation)                         │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            TIGERBEETLE                                       │
-│  (Sole Clearing Authority — Mechanical Truth Engine)                        │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            EVENT BUS                                         │
-│  (Reality Propagation to Observers)                                         │
-└─────────────────────────────────────────────────────────────────────────────┘
-                 │                        │                        │
-                 ▼                        ▼                        ▼
-     ┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
-     │  PostgreSQL      │      │   Analytics      │      │   Audit Trail    │
-     │  (Narrative      │      │   (Read-Only)    │      │   (Immutable)    │
-     │   Mirror)        │      │                  │      │                  │
-     └──────────────────┘      └──────────────────┘      └──────────────────┘
+The protocol mandates a "clearing-before-honoring" execution sequence. This is not a guideline; it is mechanically enforced by the `spendCredit` function.
+
+```mermaid
+sequenceDiagram
+    participant U as User / API Client
+    participant SE as SpendEngine
+    participant TB as TigerBeetle (Clearing Authority)
+    participant HA as Honoring Adapter
+    participant NM as Narrative Mirror
+
+    U->>SE: spendCredit(intent)
+
+    SE->>TB: createTransfer(intent)
+    TB-->>SE: Transfer Committed (Final)
+
+    SE->>HA: honor(intent)
+    HA-->>SE: Success / Failure
+
+    SE-->>NM: observe(cleared_obligation, honoring_result)
+
+    NM-->>NM: Record narrative only
 ```
 
----
-
-## Doctrine & Principles
-
-### Rule Zero: Truth is Mechanical
-
-> **If it did not clear in TigerBeetle, it did not happen.**
-
-All decisions are based on finalized transfers. There are no exceptions.
-
-### The Eight Operator Doctrines
-
-1. **No Payment Processing** — The system clears obligations; honoring happens externally
-2. **No Balance Edits** — Balances are mathematical results of finalized transfers
-3. **No Overrides** — Admins observe; they do not correct reality
-4. **Clearing ≠ Honoring** — A cleared obligation does not guarantee external execution
-5. **Attestation First** — Legitimacy is proven before clearing; no post-facto validation
-6. **Legacy Rails Are Guests** — External agents may honor claims but never define them
-7. **Fiat is Optional** — No unit-of-account is privileged
-8. **No Reversals** — All failures are handled by new transfers
-
-See [`SOVR_OPERATOR_DOCTRINE_V2.md`](SOVR_OPERATOR_DOCTRINE_V2.md) for complete operational guidance.
+### Key Guarantees:
+*   **Clearing is Atomic and Final:** The `createTransfer` call to TigerBeetle is the single, authoritative event.
+*   **Honoring is Non-Authoritative:** Honoring adapters can fail without affecting the ledger's state. Failures create new obligations, never rollbacks.
+*   **Narrative is Never on the Critical Path:** The narrative mirror is a passive listener. Its failure cannot block clearing.
 
 ---
 
-## Key Components
+## Protocol Hardening & Governance
 
-### Services
+The SOVR authority model is protected against future regressions through several layers of enforcement.
 
-| Service | Purpose |
-|---------|---------|
-| [`services/attestation.ts`](services/attestation.ts) | Cryptographic legitimacy validation before clearing |
-| [`services/spend_engine.ts`](services/spend_engine.ts) | Clears obligations through TigerBeetle |
-| [`services/narrative_mirror.ts`](services/narrative_mirror.ts) | Human-readable audit trail (PostgreSQL mirror) |
-| [`services/tigerbeetle_mock.ts`](services/tigerbeetle_mock.ts) | TigerBeetle integration layer |
-| [`services/adapters.ts`](services/adapters.ts) | Honoring agent registry (Stripe, Instacart, etc.) |
+### 1. Structural Isolation
+The TigerBeetle clearing authority is physically isolated in the `val/clearing/tigerbeetle/` directory. This makes it structurally impossible for core business logic to accidentally bypass or misuse the clearing mechanism.
 
-### UI Components
+See the authority contract at [`val/clearing/tigerbeetle/README.md`](val/clearing/tigerbeetle/README.md).
 
-| Component | Description |
-|-----------|-------------|
-| [`App.tsx`](App.tsx) | Main application orchestrator |
-| [`components/LedgerTable.tsx`](components/LedgerTable.tsx) | Double-entry ledger visualization |
-| [`components/AssetAllocationChart.tsx`](components/AssetAllocationChart.tsx) | Trust allocation visualization |
+### 2. Governance Lock
+The core principles of the authority model are constitutionally locked in the `.val/LOCKED_AUTHORITY.md` file. Any change that violates these rules is considered an automatic audit failure. This file serves as a permanent tripwire for all future development.
 
-### Types
-
-| Type | Purpose |
-|------|---------|
-| [`types.ts`](types.ts) | Core domain types, attestation proofs, merchant adapters |
+### 3. "No Reversals" Doctrine
+The protocol strictly forbids reversals, rollbacks, or refunds. All failures or adjustments are handled by creating **new obligations** on the ledger. This is enforced in the `spendCredit` function, where a failure in the honoring stage results in a `HONORING_FAILED` event, not a reversal of the cleared transaction.
 
 ---
 
 ## Technology Stack
 
-- **Frontend**: React 18 + TypeScript + Vite
-- **Styling**: Tailwind CSS with custom dark theme
-- **Icons**: Lucide React
-- **Cryptography**: ethers.js v6
-- **Database**: TigerBeetle (mechanical clearing), PostgreSQL (narrative mirror)
-- **State Management**: React hooks + localStorage persistence
+-   **Frontend**: React 18 + TypeScript + Vite
+-   **Backend**: Node.js + Express + tsx
+-   **Clearing Authority**: TigerBeetle
+-   **Narrative Mirror**: In-memory (for demo), PostgreSQL (production)
+-   **Cryptography**: ethers.js v6
 
 ---
 
@@ -132,8 +89,9 @@ See [`SOVR_OPERATOR_DOCTRINE_V2.md`](SOVR_OPERATOR_DOCTRINE_V2.md) for complete 
 
 ### Prerequisites
 
-- Node.js 18+
-- npm or yarn
+-   Node.js 18+
+-   npm or yarn
+-   A running TigerBeetle cluster
 
 ### Installation
 
@@ -144,83 +102,20 @@ cd gm-family-trust-val-core
 
 # Install dependencies
 npm install
-
-# Configure environment
-cp .env.local.example .env.local
-# Edit .env.local with your configuration
 ```
 
-### Development
+### Running the System
 
 ```bash
-# Start development server
+# Start the backend authority gateway
+npm run server
+
+# In a separate terminal, start the frontend
 npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
 ```
-
----
-
-## Usage
-
-### Dashboard Views
-
-1. **TERMINAL** — Overview of sFIAT capacity, observations, attestations, and trust reserve
-2. **HONORING** — Execute trust flows through external honoring agents
-3. **HISTORY** — Full audit log of all ledger entries
-4. **AUTH** — Authority vault for account introspection
-5. **ADAPTERS** — Configure and validate external honoring agents
-
-### Executing a Trust Flow
-
-1. Select an honoring agent (Instacart, Amazon, Stripe, etc.)
-2. Choose a consumption anchor (GROCERY, FUEL, HOUSING, MEDICAL, etc.)
-3. Enter the USD equivalent amount
-4. Click "Execute Trust Flow"
-5. Observe the clearing in TigerBeetle and the attestation proof
-
----
-
-## Authority Hierarchy
-
-| Level | Component | Role |
-|-------|-----------|------|
-| 1 | **TigerBeetle** | Sole mechanical clearing authority |
-| 2 | **Attestors** | Legitimacy gatekeepers |
-| 3 | **Observers** | Narrative mirrors (PostgreSQL, Analytics) |
-| 4 | **Honoring Agents** | Optional external executors |
-
-No component above clearing may override components below it.
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [`SOVR_CANONICAL_SPEC_V2.md`](SOVR_CANONICAL_SPEC_V2.md) | Complete system specification and architecture |
-| [`SOVR_OPERATOR_DOCTRINE_V2.md`](SOVR_OPERATOR_DOCTRINE_V2.md) | Operational rules and daily checklists |
-| [`SOVR_BLACKLIST_V2.md`](SOVR_BLACKLIST_V2.md) | Forbidden terminology and patterns |
 
 ---
 
 ## License
 
 © 2024 SOVR Development Holdings LLC. All rights reserved.
-
----
-
-## Related Projects
-
-- [TigerBeetle](https://github.com/tigerbeetle/tigerbeetle) — High-performance financial database
-- [SOVR Ecosystem](https://github.com/sovr-holdings) — Complete sovereign stack
-
----
-
-<div align="center">
-  <strong>This is not fintech. This is clearing reality itself.</strong>
-</div>

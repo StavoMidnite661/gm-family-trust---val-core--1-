@@ -18,11 +18,12 @@ import {
   getNarrativeMirror, 
   NarrativeMirrorService 
 } from './narrative-mirror-service';
+import { getTigerBeetle, TigerBeetleService } from '../clearing/tigerbeetle/client';
 import { NARRATIVE_ACCOUNTS } from '../shared/narrative-mirror-bridge';
 
 export class InsufficientCreditError extends Error {
-  constructor(available: bigint, requested: bigint) {
-    super(`Insufficient credit: ${available} units available, ${requested} units requested`);
+  constructor(message: string = 'Insufficient credit') {
+    super(message);
     this.name = 'InsufficientCreditError';
   }
 }
@@ -39,6 +40,7 @@ export class SpendEngine {
   private eventLogger: EventLogger;
   private adapters: Map<string, IMerchantValueAdapter>;
   private narrativeMirror: NarrativeMirrorService;
+  private tigerBeetle: TigerBeetleService;
   
   // User balance cache (keyed by userId)
   private userBalanceCache: Map<string, { balance: CreditBalance; timestamp: number }>;
@@ -52,6 +54,7 @@ export class SpendEngine {
     this.eventLogger = eventLogger;
     this.adapters = new Map();
     this.narrativeMirror = getNarrativeMirror();
+    this.tigerBeetle = getTigerBeetle();
     this.userBalanceCache = new Map();
   }
   
@@ -74,20 +77,9 @@ export class SpendEngine {
       throw new Error(`Invalid spend amount: ${params.amount}. Must be positive.`);
     }
     
-    // 1. Check user credit balance from Narrative Mirror
-    const balance = await this.getCreditBalance(params.userId);
     const requestedAmount = BigInt(Math.floor(params.amount * 1_000_000)); // Micro-units (10^6)
 
-    // INVARIANT: BigInt amount must be positive (redundant check for safety)
-    if (requestedAmount <= 0n) {
-      throw new Error(`Invalid calculated units: ${requestedAmount}. Must be positive.`);
-    }
-    
-    if (balance.available < requestedAmount) {
-      throw new InsufficientCreditError(balance.available, requestedAmount);
-    }
-    
-    // 2. Generate attestation
+    // 1. Generate and validate attestation
     const event: CreditEvent = {
       id: this.generateEventId(),
       type: CreditEventType.SPEND_AUTHORIZED,
@@ -102,25 +94,57 @@ export class SpendEngine {
     
     console.log(`[SpendEngine] Generating attestation for event ${event.id}`);
     const attestation = await this.attestationEngine.attest(event);
-    
-    // 3. Validate attestation
     const isValid = await this.attestationEngine.verify(attestation, event);
     if (!isValid) {
       throw new InvalidAttestationError();
     }
     
+    // 2. Execute Clearing via TigerBeetle [AUTHORITY STEP]
+    console.log(`[SpendEngine] Attempting to clear ${requestedAmount} units via TigerBeetle`);
+    const transferId = this.eventIdToBigInt(event.id);
+    const debitAccount = NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN; // User's virtual funds
+    const creditAccount = NARRATIVE_ACCOUNTS.INTERNAL_MERCHANT_PAYABLE;   // Merchant settlement account
+
+    const clearingSuccess = await this.tigerBeetle.createTransfer(
+      BigInt(debitAccount),
+      BigInt(creditAccount),
+      requestedAmount,
+      1,
+      transferId // Idempotency Key
+    );
+
+    if (!clearingSuccess) {
+      // This is a critical failure. It means the ledger rejected the transaction.
+      // This is the SOLE authority on whether the spend can proceed.
+      // Rejection is likely due to insufficient funds or a replayed event.
+      await this.eventLogger.log({
+        ...event,
+        type: CreditEventType.SPEND_REJECTED_BY_LEDGER,
+        attestation,
+      });
+      throw new InsufficientCreditError('Clearing rejected by ledger; likely insufficient funds.');
+    }
+    console.log(`[SpendEngine] CLEARING FINALIZED. Event ${event.id} is now mechanically true.`);
+
+    // 3. Log Clearing Event (for Narrative Mirror)
+    await this.eventLogger.log({
+      ...event,
+      type: CreditEventType.SPEND_EXECUTED, // This now means "cleared"
+      attestation,
+      metadata: {
+        ...event.metadata,
+        transferId: transferId.toString(),
+      }
+    });
+    
     // 4. Get merchant adapter
     const adapter = this.adapters.get(params.merchant);
-    if (!adapter) {
-      throw new Error(`Merchant adapter not found: ${params.merchant}`);
+    if (!adapter || !adapter.enabled) {
+      throw new Error(`Merchant adapter not found or disabled: ${params.merchant}`);
     }
     
-    if (!adapter.enabled) {
-      throw new Error(`Merchant adapter disabled: ${params.merchant}`);
-    }
-    
-    // 5. Call merchant adapter
-    console.log(`[SpendEngine] Calling ${params.merchant} adapter`);
+    // 5. Call merchant adapter for HONORING [POST-CLEARING]
+    console.log(`[SpendEngine] Calling ${params.merchant} adapter for post-clearing honoring`);
     let valueResponse;
     try {
       valueResponse = await adapter.issueValue({
@@ -130,64 +154,49 @@ export class SpendEngine {
         attestation,
         metadata: params.metadata
       });
+
+      if (!valueResponse.success) {
+        throw new MerchantAdapterError(
+          valueResponse.error?.message || 'Merchant value issuance failed',
+          valueResponse.error?.code || 'UNKNOWN_ERROR',
+          params.merchant
+        );
+      }
     } catch (error) {
-      // Log failed spend event
+      // If honoring fails, we DO NOT roll back the clearing.
+      // Instead, we log a new event indicating a failed honoring.
+      // This creates a NEW obligation for the system to handle.
       await this.eventLogger.log({
         ...event,
-        type: CreditEventType.SPEND_FAILED,
+        type: CreditEventType.HONORING_FAILED,
         metadata: {
           ...event.metadata,
           error: error instanceof Error ? error.message : 'Unknown error'
         }
       });
+      // We still throw, but the ledger truth remains.
       throw error;
     }
     
-    if (!valueResponse.success) {
-      throw new MerchantAdapterError(
-        valueResponse.error?.message || 'Merchant value issuance failed',
-        valueResponse.error?.code || 'UNKNOWN_ERROR',
-        params.merchant,
-        valueResponse.error?.details
-      );
-    }
-    
-    // 6. Log spend event (this creates narrative entry in Narrative Mirror)
+    // 6. Log Settlement (for Narrative Mirror)
     await this.eventLogger.log({
       ...event,
-      type: CreditEventType.SPEND_EXECUTED,
-      attestation,
+      type: CreditEventType.SPEND_SETTLED,
       metadata: {
         ...event.metadata,
         transactionId: valueResponse.transactionId,
-        valueType: valueResponse.value.type
       }
     });
+
+    console.log(`[SpendEngine] Honoring completed successfully: ${valueResponse.transactionId}`);
     
-    // 7. Update balance (Narrative Mirror is source of truth)
-    const newBalance = await this.updateCreditBalance(params.userId, -requestedAmount);
-    
-    // 8. Log settlement
-    await this.eventLogger.log({
-      id: this.generateEventId(),
-      type: CreditEventType.SPEND_SETTLED,
-      userId: params.userId,
-      amount: requestedAmount,
-      timestamp: new Date(),
-      metadata: {
-        transactionId: valueResponse.transactionId,
-        merchant: params.merchant
-      }
-    });
-    
-    console.log(`[SpendEngine] Spend completed successfully: ${valueResponse.transactionId}`);
-    
-    // 9. Return confirmation
+    // 7. Return confirmation
+    // Balance is no longer returned directly from here, it's observed from the mirror.
     return {
       success: true,
       transactionId: valueResponse.transactionId,
       value: valueResponse.value,
-      newBalance: newBalance.available,
+      newBalance: 0n, // Deprecated - client should re-fetch from API
       attestation
     };
   }
