@@ -326,7 +326,7 @@ export class SpendEngine {
     // Since SpendEngine didn't have it, we lazily get it or add it to constructor.
     // For now, we'll use lazy import pattern or singleton if available.
     // Assuming we can import getTigerBeetle.
-    const tigerBeetleService = await import('./tigerbeetle_service');
+    const tigerBeetleService = await import('../clearing/tigerbeetle/client');
     const tigerBeetle = tigerBeetleService.getTigerBeetle();
     
     const success = await tigerBeetle.createTransfer(
