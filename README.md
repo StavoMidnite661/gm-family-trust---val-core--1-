@@ -106,11 +106,29 @@ npm install
 
 ### Running the System
 
-```bash
-# Start the backend authority gateway
-npm run server
+To run the full stack, you will need **three separate terminals**.
 
-# In a separate terminal, start the frontend
+**1. Start the TigerBeetle Server (Port 3000)**
+
+The VAL Core protocol depends on a running TigerBeetle database. The source code for this is in the `tigerbeetle-main (1)/` directory for reference.
+
+```bash
+# Navigate to your compiled TigerBeetle executable's directory
+# This command starts a single-node cluster for local development.
+./tigerbeetle start --cluster=0 --replica=0 --addresses=3000
+```
+
+**2. Start the Backend Authority Gateway (Port 3001)**
+
+```bash
+# In a new terminal, from the project root
+npm run server
+```
+
+**3. Start the Frontend Application (Port 5173)**
+
+```bash
+# In a third terminal, from the project root
 npm run dev
 ```
 
