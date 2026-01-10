@@ -1,20 +1,15 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { hexlify, randomBytes, id as ethersId } from 'ethers';
+import { id as ethersId } from 'ethers';
 import {
-    CreditEventType,
     MerchantType,
     NarrativeEntry,
     NARRATIVE_ACCOUNTS,
     AssetAllocation,
     AnchorType,
-    Attestation,
     SpendResult,
     IMerchantValueAdapter
 } from './types';
-import { SpendEngine } from './services/spend_engine';
-import { getNarrativeMirror } from './services/narrative_mirror';
-import { defaultAdapters } from './services/adapters';
 import LedgerTable from './components/LedgerTable';
 import AssetAllocationChart from './components/AssetAllocationChart';
 import {
@@ -34,7 +29,6 @@ import {
     Fingerprint,
     Package,
     ShoppingCart,
-    Terminal,
     Search,
     Check,
     Activity as PulseIcon,
@@ -45,100 +39,16 @@ import {
     Boxes,
     Sliders,
     Power,
-    Info,
     Calendar,
-    Settings,
     FileSearch,
     Edit3,
     Save
 } from 'lucide-react';
 
-const ADAPTER_STORAGE_KEY = 'VAL_CORE_ADAPTER_REGISTRY_V2';
-
-/**
- * Centralized Hook for Adapter Management
- */
-function useAdapters(spendEngine: SpendEngine) {
-    const [adapters, setAdapters] = useState<IMerchantValueAdapter[]>([]);
-    const [isValidating, setIsValidating] = useState<string | null>(null);
-
-    // Persist to local storage
-    const saveState = useCallback((updatedAdapters: IMerchantValueAdapter[]) => {
-        const state = updatedAdapters.reduce((acc, a) => {
-            acc[a.type] = {
-                enabled: a.enabled,
-                configParams: a.configParams
-            };
-            return acc;
-        }, {} as Record<string, any>);
-        localStorage.setItem(ADAPTER_STORAGE_KEY, JSON.stringify(state));
-    }, []);
-
-    useEffect(() => {
-        const init = async () => {
-            const savedStateRaw = localStorage.getItem(ADAPTER_STORAGE_KEY);
-            const savedState = savedStateRaw ? JSON.parse(savedStateRaw) : {};
-
-            const instances = defaultAdapters.map(adapter => {
-                if (savedState[adapter.type]) {
-                    adapter.enabled = savedState[adapter.type].enabled;
-                    adapter.configParams = {
-                        ...adapter.configParams,
-                        ...savedState[adapter.type].configParams
-                    };
-                }
-                spendEngine.registerAdapter(adapter);
-                return adapter;
-            });
-            setAdapters(instances);
-        };
-        init();
-    }, [spendEngine]);
-
-    const toggleAdapter = useCallback((type: MerchantType) => {
-        setAdapters(prev => {
-            const next = prev.map(a => a.type === type ? { ...a, enabled: !a.enabled } : a);
-            // Sync engine (objects are references in default implementation, but for React we trigger state)
-            const target = prev.find(a => a.type === type);
-            if (target) target.enabled = !target.enabled;
-            saveState(next);
-            return [...next];
-        });
-    }, [saveState]);
-
-    const updateConfig = useCallback((type: MerchantType, params: Record<string, string>) => {
-        setAdapters(prev => {
-            const next = prev.map(a => a.type === type ? { ...a, configParams: params } : a);
-            const target = prev.find(a => a.type === type);
-            if (target) target.configParams = params;
-            saveState(next);
-            return [...next];
-        });
-    }, [saveState]);
-
-    const validateAdapter = useCallback(async (type: string) => {
-        setIsValidating(type);
-        const adapter = adapters.find(a => a.type === type);
-        if (adapter) {
-            await new Promise(r => setTimeout(r, 800));
-            await adapter.validateConfig();
-            setAdapters([...adapters]);
-        }
-        setIsValidating(null);
-    }, [adapters]);
-
-    return { adapters, isValidating, toggleAdapter, validateAdapter, updateConfig };
-}
+const API_BASE_URL = 'http://localhost:3001/api';
 
 const App: React.FC = () => {
-    // 1. Initialize Engines
-    const spendEngine = useMemo(() => new SpendEngine(), []);
-    const mirror = getNarrativeMirror();
-
-    // 2. Centralized Adapter State
-    const { adapters, isValidating, toggleAdapter, validateAdapter, updateConfig } = useAdapters(spendEngine);
-
-    // 3. UI State
+    // UI State
     const [view, setView] = useState<'dashboard' | 'ledger' | 'merchants' | 'vault' | 'adapters'>('dashboard');
     const [entries, setEntries] = useState<NarrativeEntry[]>([]);
     const [stableBalance, setStableBalance] = useState<bigint>(0n);
@@ -152,6 +62,8 @@ const App: React.FC = () => {
     const [lastSpendResult, setLastSpendResult] = useState<SpendResult | null>(null);
     const [stateHash, setStateHash] = useState<string>('0x...');
     const [editingAdapter, setEditingAdapter] = useState<IMerchantValueAdapter | null>(null);
+    const [adapters, setAdapters] = useState<IMerchantValueAdapter[]>([]);
+    const [isValidating, setIsValidating] = useState<string | null>(null);
 
     // Account Introspection State
     const [monitorAccountId, setMonitorAccountId] = useState<number>(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN);
@@ -170,50 +82,83 @@ const App: React.FC = () => {
         ];
     }, [stableBalance, odfiBalance]);
 
-    // 4. Synchronization
-    useEffect(() => {
-        const refreshData = async () => {
-            // NOTE: Narrative Mirror is a client-side mock of a server-side DB.
-            // In a real app, this would be an API call. For the audit, it's acceptable
-            // as it's non-authoritative.
-            setEntries(mirror.getEntries());
+    // Data Synchronization
+    const refreshData = useCallback(async () => {
+        try {
+            const fetchBalance = async (userId: string) => {
+                const response = await fetch(`${API_BASE_URL}/balance/${userId}`);
+                if (!response.ok) throw new Error(`Failed to fetch balance for ${userId}`);
+                const data = await response.json();
+                return BigInt(data.available);
+            };
 
-            const stableCoinBalance = await spendEngine.getCreditBalance('HONORING_ADAPTER_STABLECOIN');
-            setStableBalance(stableCoinBalance.available);
+            const [
+                narrativeRes,
+                stableCoinBalance,
+                odfiBalance,
+                mintBalance,
+                adaptersRes
+            ] = await Promise.all([
+                fetch(`${API_BASE_URL}/narrative`),
+                fetchBalance('HONORING_ADAPTER_STABLECOIN'),
+                fetchBalance('HONORING_ADAPTER_ODFI'),
+                fetchBalance('MINT'),
+                fetch(`${API_BASE_URL}/adapters`),
+            ]);
 
-            const odfiBalance = await spendEngine.getCreditBalance('HONORING_ADAPTER_ODFI');
-            setOdfiBalance(odfiBalance.available);
+            if (!narrativeRes.ok || !adaptersRes.ok) throw new Error('Failed to fetch initial data');
 
-            const mintBalance = await spendEngine.getCreditBalance('MINT');
-            setMintBalance(mintBalance.available);
+            const narrativeData = await narrativeRes.json();
+            const adaptersData = await adaptersRes.json();
 
-            // This is a bit inefficient, but for the sake of the audit, we'll re-fetch
-            const monitorAccountInfo = await spendEngine.getCreditBalance(
-                Object.keys(NARRATIVE_ACCOUNTS).find(key => NARRATIVE_ACCOUNTS[key as any] === monitorAccountId) || 'UNKNOWN'
-            );
-            setMonitorBalance(monitorAccountInfo.available);
+            setEntries(narrativeData);
+            setStableBalance(stableCoinBalance);
+            setOdfiBalance(odfiBalance);
+            setMintBalance(mintBalance);
+            setAdapters(adaptersData);
 
-            const currentHash = ethersId(`${stableCoinBalance.available}${odfiBalance.available}${mintBalance.available}${mirror.getEntries().length}`);
+            const monitorAccountKey = Object.keys(NARRATIVE_ACCOUNTS).find(key => NARRATIVE_ACCOUNTS[key as any] === monitorAccountId) || 'UNKNOWN';
+            const monitorAccountInfo = await fetchBalance(monitorAccountKey);
+            setMonitorBalance(monitorAccountInfo);
+
+            const currentHash = ethersId(`${stableCoinBalance}${odfiBalance}${mintBalance}${narrativeData.length}`);
             setStateHash(currentHash.slice(0, 16).toUpperCase());
-        };
 
+        } catch (error) {
+            console.error("[RefreshData] Failed to fetch system state:", error);
+        }
+    }, [monitorAccountId]);
+
+    useEffect(() => {
         refreshData();
         const interval = setInterval(refreshData, 3000);
         return () => clearInterval(interval);
-    }, [monitorAccountId, mirror, spendEngine]);
+    }, [refreshData]);
 
-    // 5. Spend Logic
+    // Spend Logic
     const handleSpendCredit = async () => {
         setIsClearing(true);
         try {
-            const result = await spendEngine.spendCredit({
-                userId: 'gm_trust_admin',
-                amount: parseFloat(unitAmount),
-                merchant: selectedMerchant,
-                metadata: { email: 'admin@gm-trust.family' }
+            const response = await fetch(`${API_BASE_URL}/spend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: 'gm_trust_admin',
+                    amount: parseFloat(unitAmount),
+                    merchant: selectedMerchant,
+                    metadata: { email: 'admin@gm-trust.family' }
+                }),
             });
-            setEntries(mirror.getEntries());
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Spend operation failed');
+            }
+
             setLastSpendResult(result);
+            await refreshData(); // Refresh data to show the latest state
+
         } catch (e: any) {
             console.error(e);
             alert(`Flow Rejected: ${e.message}`);
@@ -238,9 +183,12 @@ const App: React.FC = () => {
         { id: 'adapters', label: 'ADAPTERS', icon: Sliders }
     ];
 
-    /**
-     * Modal for editing Adapter Configuration
-     */
+    // NOTE: Adapter configuration functionality (toggle, update, validate) is stubbed
+    // as it would require additional backend endpoints which are not part of this fix.
+    const toggleAdapter = (type: MerchantType) => console.warn("toggleAdapter is not implemented");
+    const updateConfig = (type: MerchantType, params: Record<string, string>) => console.warn("updateConfig is not implemented");
+    const validateAdapter = (type: string) => console.warn("validateAdapter is not implemented");
+
     const ConfigModal = () => {
         const [localConfig, setLocalConfig] = useState<Record<string, string>>({});
 
@@ -371,7 +319,7 @@ const App: React.FC = () => {
                                             <span className="text-[13px] font-bold text-slate-300">Account::{line.accountId}</span>
                                         </div>
                                         <span className={`text-[14px] font-black mono ${line.type === 'DEBIT' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                            {line.type === 'DEBIT' ? '-' : '+'}{formatCurrency(line.amount)}
+                                            {line.type === 'DEBIT' ? '-' : '+'}{formatCurrency(BigInt(line.amount))}
                                         </span>
                                     </div>
                                 ))}
@@ -710,7 +658,7 @@ const App: React.FC = () => {
                                                         <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">LAST VALIDATION</span>
                                                     </div>
                                                     <span className="text-[10px] font-mono text-slate-400">
-                                                        {adapter.lastValidatedAt ? adapter.lastValidatedAt.toLocaleTimeString() : 'AWAITING'}
+                                                        {adapter.lastValidatedAt ? new Date(adapter.lastValidatedAt).toLocaleTimeString() : 'AWAITING'}
                                                     </span>
                                                 </div>
 
@@ -724,7 +672,7 @@ const App: React.FC = () => {
                                                             {Object.entries(adapter.configParams).map(([key, val]) => (
                                                                 <div key={key} className="p-2 rounded-lg bg-black/40 border border-white/[0.03] flex flex-col">
                                                                     <span className="text-[8px] font-black text-slate-500 uppercase leading-none mb-1">{key}</span>
-                                                                    <span className="text-[10px] font-mono text-slate-300 truncate max-w-[140px] leading-none">{val}</span>
+                                                                    <span className="text-[10px] font-mono text-slate-300 truncate max-w-[140px] leading-none">{val as string}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
