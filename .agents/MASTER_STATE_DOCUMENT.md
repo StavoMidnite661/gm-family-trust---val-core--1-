@@ -1,10 +1,10 @@
-# 📋 SOVR Master State Document (MSD) v2.1
+# 📋 SOVR Master State Document (MSD) v2.2
 
 > **The single source of truth for all Cabinet operations.**
-> 
-> **Last Updated:** 2026-01-05T17:05:00-08:00
-> **Updated By:** Kilo Code Agent
-> **MSD Version:** 2.1
+>
+> **Last Updated:** 2026-01-13T03:30:00-08:00
+> **Updated By:** Antigravity Agent (Chief of Staff)
+> **MSD Version:** 2.2
 
 ---
 
@@ -17,15 +17,16 @@ project:
   name: "GM Family Trust - VAL Core"
   codename: "VAL Core Authority"
   version: "1.0.0"
-  stage: "Running"
-  
+  stage: "Running - Demo Mode Active"
+
   health: "Healthy"
   dev_server_url: "http://localhost:3000"
-  
+  backend_server_url: "http://localhost:3001"
+
 owner:
   name: "SOVR Development Holdings LLC"
   orchestrator: "Human Commander"
-  
+
 repository:
   primary: "D:/SOVR_Development_Holdings_LLC/LLM knowledge/gm-family-trust---val-core (1)"
   components:
@@ -52,12 +53,20 @@ sprint:
   start_date: "2026-01-04"
   end_date: ""
   status: "Active"
-  
+
 goals:
   - goal: "Verify and fix React 19 / importmap issues that prevent UI from rendering."
     status: "Completed"
     owner: "Kilo Code Agent"
     date: "2026-01-05"
+  - goal: "Launch VAL Core application with fully functional dashboard."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-13"
+  - goal: "Implement demo data seeder for realistic dashboard demonstration."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-13"
   - goal: "Delegate file-by-file documentation task to The Articulator."
     status: "Pending"
     owner: "The Articulator"
@@ -67,13 +76,13 @@ goals:
 
 ```yaml
 context:
-  current_focus: "VAL Core application is running. Reviewed root-level SOVR documentation and val/ backend implementation. Ready for further development."
-  
-  last_decision: 
-    decision: "Reviewed core SOVR documentation files (One Minute Script, Operator Doctrine, Canonical Spec, Blacklist) and val/ backend implementation."
-    by: "Kilo Code Agent"
-    date: "2026-01-05"
-    
+  current_focus: "VAL Core dashboard fully operational with demo data. Frontend on port 3000, backend on port 3001. Dashboard displays SFIAT CAP ($18,584.91), Trust Reserve ($10,000), 12 narrative observations, and 65/35 asset allocation."
+
+  last_decision:
+    decision: "Implemented demo data seeder with 12 narrative entries and frontend balance initialization. Fixed CSP policy, async Promise handling, and BigInt JSON serialization."
+    by: "Antigravity Agent"
+    date: "2026-01-13"
+
   doctrine:
     name: "SOVR Doctrine / Sovereign Semantic Model"
     core_principles:
@@ -82,14 +91,14 @@ context:
       - "No Balance Edits (Balances are mathematical results of cleared transfers)"
       - "No Reversals (Failures and adjustments are new events)"
       - "Legacy Rails are Guests (External systems are optional 'honoring agents')"
-    
+
     forbidden_terms: # Retained from core framework
       - "payment processing"
       - "transaction processing"
       - "reversals"
       - "refunds"
       - "chargebacks"
-      
+
   recent_changes:
     - file: "SOVR_ONE_MINUTE_SCRIPT.md"
       change: "REVIEWED: Core spoken constitution explaining SOVR as ledger-cleared obligation network."
@@ -127,7 +136,7 @@ context:
 chief_of_staff:
   active_delegations:
     # None
-    
+
   orchestrator_directives:
     - directive: "Review and integrate the 'gm-family-trust---val-core (1)' project."
       received: "2026-01-04"
@@ -137,13 +146,14 @@ chief_of_staff:
     - directive: "Incorporate new agent architecture knowledge into the framework."
       received: "2026-01-04"
       status: "Complete"
-    
+
   next_actions:
     - "Oversee documentation of the VAL Core project by The Articulator."
     - "Prepare for next phase of development or analysis based on Orchestrator feedback."
 ```
 
 ### B.2 — FINTECH Architect Memory
+
 (No new project-specific data yet)
 
 ---
@@ -161,6 +171,23 @@ handoffs:
 
 ```yaml
 decisions:
+  - id: "DEC-2026-01-13-02"
+    date: "2026-01-13"
+    decision: "Implemented demo data seeder in val/server.ts with 12 narrative entries covering genesis funding, trust reserve allocation, grocery purchases, gift cards, utility payments, and more."
+    made_by: "Antigravity Agent"
+    rationale: "To populate the dashboard with realistic financial data for demonstration purposes."
+    affected_areas:
+      - "val/server.ts"
+      - "services/tigerbeetle_mock.ts"
+  - id: "DEC-2026-01-13-01"
+    date: "2026-01-13"
+    decision: "Fixed three critical bugs: CSP policy blocking Tailwind CDN, async Promise handling in App.tsx, and BigInt JSON serialization in server.ts."
+    made_by: "Antigravity Agent"
+    rationale: "To enable the VAL Core dashboard to fully render and fetch data from the backend API."
+    affected_areas:
+      - "index.html (CSP policy)"
+      - "App.tsx (await mirror.getEntries())"
+      - "val/server.ts (serializeBigInts helper)"
   - id: "DEC-2026-01-05-05"
     date: "2026-01-05"
     decision: "Reviewed core SOVR documentation files and val/ backend implementation. Confirmed system architecture alignment with doctrine."
@@ -209,7 +236,7 @@ decisions:
     decision: "TigerBeetle is the sole clearing authority for all financial obligations"
     made_by: "Orchestrator"
     status: "FRAMEWORK_DOCTRINE"
-    
+
   - id: "DEC-002"
     date: "2025-12-17"
     decision: "All forbidden fintech terminology must be replaced with sovereign-correct language"
@@ -223,6 +250,31 @@ decisions:
 
 ```yaml
 sessions:
+  - id: "SESSION-20260113-DEMO-DATA-IMPLEMENTATION"
+    agent: "Chief of Staff (Antigravity Agent)"
+    start: "2026-01-13T02:04:00-08:00"
+    end: "2026-01-13T03:30:00-08:00"
+    summary: |
+      - Launched VAL Core frontend (Vite on port 3000) and backend (Express on port 3001)
+      - Fixed CSP policy in index.html to allow Tailwind CDN
+      - Fixed async Promise handling in App.tsx (await mirror.getEntries())
+      - Implemented demo data seeder in val/server.ts with 12 narrative entries
+      - Added serializeBigInts helper to fix JSON serialization of BigInt values
+      - Initialized frontend TigerBeetle mock with demo balances ($18,584.91 SFIAT, $10,000 Reserve)
+      - Dashboard now fully operational with 65/35 asset allocation display
+    artifacts_created:
+      - "Demo data seeder function in val/server.ts"
+      - "BigInt serialization helper in val/server.ts"
+      - "Initialized demo balances in services/tigerbeetle_mock.ts"
+    files_modified:
+      - "index.html"
+      - "App.tsx"
+      - "val/server.ts"
+      - "services/tigerbeetle_mock.ts"
+      - ".agents/MASTER_STATE_DOCUMENT.md"
+    handoff_ready: true
+    handoff_to: "Any specialist via Universal Specialist Prompt"
+
   - id: "SESSION-20260107-SERVICES-COMPONENTS-READ"
     agent: "Chief of Staff (Minimax Agent)"
     start: "2026-01-07T20:54:00-08:00"
@@ -379,6 +431,7 @@ I am working on the SOVR project, a ledger-cleared obligation network based on m
 
 **Mission:**
 Assist with [SPECIFIC TASK] while respecting SOVR doctrine:
+
 - Truth is mechanical
 - No balance edits
 - No reversals
@@ -386,6 +439,7 @@ Assist with [SPECIFIC TASK] while respecting SOVR doctrine:
 - Fiat optional
 
 **Constraints:**
+
 - Never use forbidden terms (payment processing, custody, balance updates)
 - Use correct terminology (clearing, obligation, honoring agent)
 - Preserve system sovereignty

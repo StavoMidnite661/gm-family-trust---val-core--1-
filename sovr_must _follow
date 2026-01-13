@@ -1,0 +1,1572 @@
+# SOVR LANGUAGE BLACKLIST V2
+
+## NEVER USE THESE WORDS
+
+If **any** of these appear in code, documentation, or conversation, the system is compromised.
+
+### ❌ FORBIDDEN TERMS
+
+#### System Authority
+- "Source of truth database"
+- "Central ledger"
+- "Master record"
+- "Authoritative source"
+- "Primary system"
+
+#### Payment Processing
+- "Payment processor"
+- "Payment gateway"
+- "Payment system"
+- "Payment network"
+- "Payment rail"
+
+#### Custodial Language
+- "User funds"
+- "System balance"
+- "Shared pool"
+- "Reserve account"
+- "Custody wallet"
+
+#### Balance Mutation
+- "Account balance update"
+- "Manual adjustment"
+- "Admin override"
+- "Discretionary edit"
+- "Force settlement"
+
+#### Settlement Language
+- "Settlement layer"
+- "Settlement engine"
+- "Settlement finality"
+- "Settlement status"
+- "Pending settlement"
+
+#### Fiat Privilege
+- "Fiat-backed"
+- "USD-backed"
+- "Dollar-pegged"
+- "Redemption in USD"
+- "Fiat equivalent"
+
+#### Reversal Operations
+- "Chargeback"
+- "Refund"
+- "Rollback"
+- "Reversal"
+- "Undo transaction"
+
+#### Narrative Authority
+- "Reconciliation required"
+- "Data correction"
+- "Audit adjustment"
+- "Posting correction"
+- "Journal entry edit"
+
+#### Custodial Ambiguity
+- "Held by system"
+- "In our control"
+- "Under management"
+- "In custody"
+- "In escrow"
+
+#### Fiat Dependency
+- "Fiat on-ramp"
+- "Fiat off-ramp"
+- "Fiat gateway"
+- "Fiat bridge"
+- "Fiat conversion"
+
+#### Central Control
+- "Freeze funds"
+- "Lock account"
+- "Disable user"
+- "Suspend operations"
+- "Emergency stop"
+
+#### Narrative Truth
+- "Story about what happened"
+- "Historical record"
+- "Transaction history"
+- "Past events"
+- "What occurred"
+
+#### Semantic Reversion
+- "On-ramp"
+- "Off-ramp"
+- "Payment"
+- "Balance"
+- "Custody"
+
+### ✅ ALLOWED TERMS
+
+#### Mechanical Truth
+- "Clearing"
+- "Finality"
+- "Transfer"
+- "Obligation"
+- "Claim"
+
+#### Honoring
+- "Honoring agent"
+- "External executor"
+- "Optional honoring"
+- "Claim fulfillment"
+- "Obligation execution"
+
+#### Observation
+- "Narrative mirror"
+- "Immutable log"
+- "Audit trail"
+- "Read-only record"
+- "Observation layer"
+
+#### Authority
+- "Sole clearing authority"
+- "Mechanical truth"
+- "Deterministic result"
+- "Finalized transfer"
+- "Cleared obligation"
+
+#### Discipline
+- "No overrides"
+- "No edits"
+- "No reversals"
+- "No discretion"
+- "No exceptions"
+
+#### Translation Paths
+- "Translation path"
+- "Honoring interface"
+- "External adapter"
+- "Value translation"
+- "Claim execution"
+
+## LANGUAGE DRIFT DETECTION
+
+### RED FLAGS IN CODE
+
+```typescript
+// ❌ FORBIDDEN
+function updateUserBalance(userId: string, amount: number) {
+  // Never manually adjust balances
+}
+
+// ✅ ALLOWED
+function recordTransfer(transfer: Transfer) {
+  // Let clearing engine update balances
+}
+```
+
+```typescript
+// ❌ FORBIDDEN
+interface PaymentProcessor {
+  // Never call it a payment processor
+}
+
+// ✅ ALLOWED
+interface HonoringAgent {
+  // External claim fulfillment
+}
+```
+
+```typescript
+// ❌ FORBIDDEN
+class SettlementEngine {
+  // Never call it settlement
+}
+
+// ✅ ALLOWED
+class ClearingEngine {
+  // Mechanical truth
+}
+```
+
+### RED FLAGS IN DOCUMENTATION
+
+❌ "The system processes payments"
+✅ "The system clears obligations"
+
+❌ "User funds are held securely"
+✅ "Cleared obligations exist"
+
+❌ "Balances are updated daily"
+✅ "Balances are mathematical results"
+
+❌ "Payments are settled"
+✅ "Obligations are cleared"
+
+❌ "Fiat on/off ramps available"
+✅ "External value translation adapters"
+
+### RED FLAGS IN CONVERSATION
+
+❌ "We need to reconcile the ledger"
+✅ "We need to verify clearing finality"
+
+❌ "The balance was adjusted"
+✅ "The transfer was recorded"
+
+❌ "The payment was reversed"
+✅ "A new transfer was created"
+
+❌ "The account was frozen"
+✅ "The attestor rejected the claim"
+
+❌ "The funds are in custody"
+✅ "The obligations are cleared"
+
+## DISIPLINE PROTOCOL
+
+### WHEN YOU HEAR FORBIDDEN LANGUAGE
+
+1. **Stop the conversation**
+2. **Identify the forbidden term**
+3. **Replace with allowed term**
+4. **Document the violation**
+5. **Train the speaker**
+
+### WHEN YOU SEE FORBIDDEN CODE
+
+1. **Do not merge**
+2. **Identify the violation**
+3. **Replace with correct term**
+4. **Document the fix**
+5. **Train the developer**
+
+### WHEN YOU READ FORBIDDEN DOCUMENTATION
+
+1. **Do not approve**
+2. **Identify the violation**
+3. **Replace with correct term**
+4. **Document the correction**
+5. **Train the writer**
+
+## FAILURE MODE: SEMANTIC REVERSION
+
+### Description
+Reintroduction of payment, balance, or custody language into the system.
+
+### Impact
+System becomes narratively reclassified as fintech, losing sovereign properties.
+
+### Mitigation
+- **Language audits:** Regular reviews of all documentation
+- **Operator retraining:** Immediate correction of violations
+- **Document invalidation:** Retire documents with violations
+- **Code reviews:** Enforce language discipline in all PRs
+
+## FINAL VERDICT
+
+**Language discipline = system survival.**
+
+If you use forbidden terms, you are **dangerous**.
+
+**This is not fintech. This is clearing reality itself.**
+
+
+----------------
+
+# SOVR CANONICAL SPECIFICATION V2
+
+## SYSTEM DEFINITION
+
+SOVR is a **ledger-cleared obligation network** where value exists only as the result of finalized mechanical transfers.
+
+**Truth is mechanical, not narrative.** If it did not clear in TigerBeetle, it did not happen.
+
+## AUTHORITY HIERARCHY
+
+1. **TigerBeetle** — sole clearing authority
+2. **Attestors** — legitimacy gatekeepers
+3. **Observers (Postgres, Analytics)** — narrative mirrors
+4. **Honoring Agents** — optional external executors
+
+No component above clearing may override components below it.
+
+## ARCHITECTURE DIAGRAM
+
+```
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                            EXTERNAL SYSTEMS                                 │
+│  (Honoring Agents: Banks, Payment Processors, Crypto Exchanges)            │
+└───────────────────────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                            CREDIT TERMINAL                                    │
+│  (Intent → Transfer Translator)                                            │
+└───────────────────────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                            ATTESTOR                                          │
+│  (Legitimacy Gate)                                                         │
+└───────────────────────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                            TIGERBEETLE                                       │
+│  (Sole Clearing Authority - Mechanical Truth)                              │
+└───────────────────────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                            EVENT BUS                                         │
+│  (Reality Propagation)                                                    │
+└───────────────────────────────────────────────────────────────────────────────┘
+               │                  │                  │
+               ▼                  ▼                  ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                            OBSERVERS                                         │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐  │
+│  │  PostgreSQL     │    │  Analytics      │    │  Audit Trail    │  │
+│  │  (Narrative     │    │  (Read-Only)    │    │  (Immutable)    │  │
+│  │   Mirror)       │    │                 │    │                 │  │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘  │
+└───────────────────────────────────────────────────────────────────────────────┘
+               │
+               ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                            FINSEC MONITOR                                    │
+│  (Observer Dashboard - Read-Only)                                           │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+## COMPONENT SPECIFICATIONS
+
+### 1. TIGERBEETLE (SOLE CLEARING AUTHORITY)
+
+#### Properties
+- **Role:** Mechanical truth engine
+- **Function:** Deterministic clearing of obligations
+- **Authority:** Sole source of truth
+- **Finality:** Irreversible at clearing
+
+#### Requirements
+- **Cluster Configuration:**
+  - Cluster ID: 1
+  - Replication Factor: 3
+  - Cluster Size: 5 (production)
+  - Nodes: 5 (distributed)
+
+- **Account Structure:**
+  - Mirror Oracle Ledger chart of accounts
+  - No custodial ambiguity
+  - All balances are transfer results
+
+- **Transfer Properties:**
+  - Deterministic
+  - Final
+  - No reversals
+  - No edits
+  - No overrides
+
+#### Invariants
+- **No balance mutation:** Balances are mathematical results
+- **No discretionary overrides:** All transfers are final
+- **No custodial ambiguity:** No "user funds"
+- **No narrative authority:** Truth is mechanical
+
+### 2. CREDIT TERMINAL (INTENT → TRANSFER TRANSLATOR)
+
+#### Properties
+- **Role:** Intent submission and transfer creation
+- **Function:** Accept claims, validate attestation, submit to clearing
+- **Authority:** None (no clearing authority)
+- **Finality:** None (clearing happens in TigerBeetle)
+
+#### Requirements
+- **Intent Submission:**
+  - Accept user claims
+  - Validate attestation
+  - Submit to clearing
+  - Return finality proof
+
+- **No Honoring Logic:**
+  - Honoring is external
+  - No system involvement
+  - No guarantees
+
+- **No Clearing Authority:**
+  - Cannot override clearing
+  - Cannot create value
+  - Cannot reverse transfers
+
+#### Invariants
+- **No value creation:** Only translates intent to transfers
+- **No clearing authority:** Submits to TigerBeetle
+- **No honoring guarantees:** External only
+
+### 3. ATTESTOR (LEGITIMACY GATE)
+
+#### Properties
+- **Role:** Legitimacy validation
+- **Function:** Validate claims, issue attestation tokens, prevent double-spending
+- **Authority:** Policy enforcement (before clearing)
+- **Finality:** None (attestation must precede clearing)
+
+#### Requirements
+- **Legitimacy Checks:**
+  - Validate claims
+  - Issue attestation tokens
+  - Prevent double-spending
+  - Enforce policy rules
+
+- **Policy Enforcement:**
+  - Transfer limits
+  - Account restrictions
+  - Compliance rules
+  - No value creation
+
+- **No Clearing Authority:**
+  - Cannot create obligations
+  - Cannot override clearing
+  - Read-only after attestation
+
+#### Invariants
+- **Attestation first:** Must attest before clearing
+- **No value creation:** Cannot create obligations
+- **No clearing authority:** Read-only after attestation
+
+### 4. EVENT BUS (REALITY PROPAGATION)
+
+#### Properties
+- **Role:** Reality propagation
+- **Function:** Broadcast cleared transfers, notify honoring agents, update observers
+- **Authority:** None (read-only)
+- **Finality:** None (propagates finality)
+
+#### Requirements
+- **Broadcast Cleared Transfers:**
+  - Transfer ID
+  - Clearing timestamp
+  - Balance updates
+  - Finality proof
+
+- **Notify Honoring Agents:**
+  - External agents only
+  - No system involvement
+  - No guarantees
+
+- **Update Observers:**
+  - Postgres mirror
+  - Analytics
+  - Audit trail
+
+#### Invariants
+- **Read-only:** Cannot modify transfers
+- **No authority:** Cannot create value
+- **No clearing:** Propagates finality only
+
+### 5. OBSERVERS (NARRATIVE MIRRORS)
+
+#### Properties
+- **Role:** Immutable narrative mirrors
+- **Function:** Store audit trail, provide analytics, support compliance
+- **Authority:** None (read-only, never authoritative)
+- **Finality:** None (mirrors finality)
+
+#### Requirements
+- **PostgreSQL:**
+  - Immutable logs
+  - Audit trail
+  - Read-only for operators
+
+- **Analytics:**
+  - Read-only dashboards
+  - No system modifications
+  - No clearing authority
+
+- **Audit Trail:**
+  - Immutable records
+  - All transfers logged
+  - All attestations logged
+
+#### Invariants
+- **Read-only:** No balance edits
+- **No authority:** Never authoritative
+- **No clearing:** Mirrors only
+
+### 6. HONORING AGENTS (OPTIONAL EXTERNAL EXECUTORS)
+
+#### Properties
+- **Role:** Optional claim honoring
+- **Function:** Execute cleared obligations externally
+- **Authority:** None (never authoritative)
+- **Finality:** None (external execution)
+
+#### Requirements
+- **External Execution:**
+  - Stripe (payment processor)
+  - ACH (bank transfer)
+  - Card issuers
+  - Crypto exchanges
+
+- **No Authority:**
+  - Cannot override clearing
+  - Cannot create value
+  - Must honor cleared claims
+
+- **Multiple Agents:**
+  - Redundancy
+  - Alternative routes
+  - No single point of failure
+
+#### Invariants
+- **Optional:** Not required
+- **No authority:** Never authoritative
+- **No guarantees:** External only
+
+## TRANSACTION LIFECYCLE
+
+### Phase 1: Intent Submission
+
+1. **User submits claim**
+   - Intent to transfer value
+   - No value created yet
+
+2. **Credit Terminal validates**
+   - Accepts claim
+   - No attestation yet
+
+3. **Claim enters queue**
+   - Awaiting attestation
+   - No value created
+
+### Phase 2: Attestation
+
+1. **Attestor validates**
+   - Legitimacy check
+   - Policy compliance
+
+2. **Attestation issued**
+   - Token created
+   - Claim validated
+
+3. **Attested claim ready**
+   - Can now clear
+   - No value created
+
+### Phase 3: Clearing
+
+1. **TigerBeetle processes**
+   - Deterministic transfer
+   - Balance update
+
+2. **Finality achieved**
+   - Transfer is final
+   - No reversals
+
+3. **Event bus propagates**
+   - Broadcasts to observers
+   - Notifies honoring agents
+
+### Phase 4: Honoring (Optional)
+
+1. **External agent executes**
+   - Honors cleared claim
+   - No system involvement
+
+2. **Honoring complete**
+   - External execution
+   - No system guarantee
+
+3. **Observers updated**
+   - Narrative mirror
+   - Analytics updated
+
+## FORBIDDEN OPERATIONS
+
+### Never Permitted
+
+1. **Balance Mutation**
+   - No manual adjustments
+   - No admin overrides
+   - No discretionary edits
+
+2. **Transfer Reversal**
+   - No chargebacks
+   - No refunds
+   - No rollbacks
+
+3. **Custodial Ambiguity**
+   - No "user funds"
+   - No "system balance"
+   - No shared pools
+
+4. **Narrative Authority**
+   - No "source of truth database"
+   - No "payment processor"
+   - No "account balance update"
+
+5. **Fiat Privilege**
+   - No "fiat-backed"
+   - No "redemption in USD"
+   - No unit-of-account privilege
+
+6. **Semantic Reversion**
+   - No reintroduction of payment language
+   - No balance mutation terminology
+   - No custody terminology
+
+## RISK POSTURE
+
+### Survival Properties
+
+1. **No Central Control**
+   - No single entity can freeze funds
+   - No single entity can reverse transfers
+   - No single entity defines truth
+
+2. **No Custodial Risk**
+   - No shared pools
+   - No "user funds"
+   - All value is cleared obligations
+
+3. **No Narrative Dependency**
+   - Truth is mechanical
+   - Postgres is a mirror
+   - No database is authoritative
+
+4. **No Fiat Dependency**
+   - Fiat is optional
+   - Banks are adapters
+   - No fiat settlement required
+
+### Failure Modes
+
+1. **Clearing Failure**
+   - TigerBeetle cluster failure
+   - Network partition
+   - Hardware failure
+   - **Mitigation:** Replicated cluster, automatic failover
+
+2. **Attestation Failure**
+   - Attestor unavailable
+   - Policy violation
+   - **Mitigation:** Multiple attestors, fallback policies
+
+3. **Honoring Failure**
+   - External agent refuses
+   - Bank declines
+   - **Mitigation:** Multiple honoring agents, alternative routes
+
+4. **Observation Failure**
+   - Postgres unavailable
+   - Analytics broken
+   - **Mitigation:** Read-only, no impact on clearing
+
+5. **Semantic Reversion**
+   - Reintroduction of payment, balance, or custody language
+   - **Impact:** System becomes narratively reclassified as fintech
+   - **Mitigation:** Language audits, operator retraining, document invalidation if violations persist
+
+## MOMENT FIAT DROPS OUT
+
+Fiat becomes irrelevant at the moment a transfer is finalized by the clearing engine.
+
+**Named Event:** CLEARING_FINALIZED
+
+**State:** No external confirmation alters this state
+
+After this moment:
+- Fiat is optional
+- Banks are adapters
+- Compliance becomes observational, not structural
+- The system is fully sovereign
+
+## IMPLEMENTATION REQUIREMENTS
+
+### Phase 1: Truth Engine Deployment
+
+1. **Deploy TigerBeetle Cluster**
+   - 5 nodes (production)
+   - Replication factor 3
+   - No single point of failure
+
+2. **Configure Clearing Rules**
+   - Account structure (mirror Oracle Ledger)
+   - Transfer limits
+   - Attestation requirements
+
+3. **Verify Finality**
+   - All transfers are final
+   - No reversals
+   - No edits
+
+### Phase 2: Credit Terminal Integration
+
+1. **Implement Intent Submission**
+   - Accept claims
+   - Validate attestation
+   - Submit to clearing
+
+2. **Return Finality Proof**
+   - Transfer ID
+   - Clearing timestamp
+   - Balance updates
+
+3. **No Honoring Logic**
+   - External only
+   - No system involvement
+   - No guarantees
+
+### Phase 3: Attestor Integration
+
+1. **Implement Legitimacy Checks**
+   - Validate claims
+   - Issue attestation tokens
+   - Prevent double-spending
+
+2. **Enforce Policy**
+   - Transfer limits
+   - Account restrictions
+   - Compliance rules
+
+3. **No Value Creation**
+   - Cannot create obligations
+   - Cannot override clearing
+   - Read-only after attestation
+
+### Phase 4: Observation Layer
+
+1. **Deploy Narrative Mirror**
+   - Postgres database
+   - Audit trail
+   - Analytics
+
+2. **Ensure Read-Only**
+   - No balance edits
+   - No transfer modifications
+   - No overrides
+
+3. **Support Compliance**
+   - Immutable logs
+   - Export capabilities
+   - No narrative authority
+
+### Phase 5: Honoring Agents (Optional)
+
+1. **Integrate External Agents**
+   - Stripe
+   - ACH
+   - Card issuers
+   - Crypto exchanges
+
+2. **Ensure No Authority**
+   - Cannot override clearing
+   - Cannot create value
+   - Must honor cleared claims
+
+3. **Multiple Agents Recommended**
+   - Redundancy
+   - Alternative routes
+   - No single point of failure
+
+## OPERATIONAL REQUIREMENTS
+
+### Daily Operations
+
+1. **Verify Clearing**
+   - TigerBeetle cluster health
+   - Transfer finality
+   - No pending obligations
+
+2. **Monitor Attestation**
+   - Attestor availability
+   - Policy compliance
+   - No unattested claims
+
+3. **Observe Narrative**
+   - Postgres sync
+   - Analytics updates
+   - Audit trail integrity
+
+4. **No Interventions**
+   - No balance edits
+   - No transfer reversals
+   - No overrides
+
+### Incident Response
+
+1. **Clearing Failure**
+   - Verify cluster health
+   - Check network connectivity
+   - Restart failed nodes
+   - **Never override clearing**
+
+2. **Attestation Failure**
+   - Verify attestor availability
+   - Check policy rules
+   - Use fallback attestors
+   - **Never create unattested claims**
+
+3. **Honoring Failure**
+   - Verify external agent status
+   - Try alternative agents
+   - **Never override clearing**
+   - **Never guarantee honoring**
+
+4. **Observation Failure**
+   - Verify Postgres health
+   - Check sync status
+   - Restart if needed
+   - **No impact on clearing**
+
+5. **Semantic Drift Detected**
+   - Identify violation
+   - Correct language
+   - Retrain operator
+   - Document incident
+
+### Maintenance
+
+1. **Weekly**
+   - Verify cluster health
+   - Check attestor availability
+   - Review audit trail
+   - **No system modifications**
+
+2. **Monthly**
+   - Full system backup
+   - Review policies
+   - Test failover
+   - **No clearing modifications**
+
+3. **Quarterly**
+   - Full cluster upgrade
+   - Policy review
+   - Attestor rotation
+   - **No truth modifications**
+
+## COMPLIANCE REQUIREMENTS
+
+### Observational Compliance
+
+1. **Audit Trail**
+   - Immutable logs
+   - All transfers recorded
+   - All attestations recorded
+
+2. **Narrative Mirror**
+   - Postgres for reporting
+   - Analytics for monitoring
+   - No authority
+
+3. **External Reporting**
+   - Export capabilities
+   - Compliance dashboards
+   - No system impact
+
+### Structural Compliance
+
+1. **No Custodial Risk**
+   - No shared pools
+   - No "user funds"
+   - All value is cleared obligations
+
+2. **No Fiat Dependency**
+   - Fiat is optional
+   - Banks are adapters
+   - No fiat settlement required
+
+3. **No Central Control**
+   - No single entity can freeze funds
+   - No single entity can reverse transfers
+   - No single entity defines truth
+
+## STRATEGIC CONSEQUENCE
+
+This architecture:
+- Does not require banking licenses
+- Does not custody funds
+- Does not promise redemption
+- Cannot be frozen centrally
+- Survives because it refuses control
+
+## FINAL VERDICT
+
+SOVR is a **ledger-cleared obligation network** where value exists only as the result of finalized mechanical transfers. Truth is mechanical, not narrative. Fiat is optional. Banks are adapters. The system survives because it refuses control.
+
+**This is not fintech. This is clearing reality itself.**
+
+## BOARD-GRADE SUMMARY
+
+### What This Is
+- A ledger-cleared obligation network
+- Mechanical truth engine (TigerBeetle)
+- No custodial risk
+- No central control
+- No fiat dependency
+
+### What This Is Not
+- A payment processor
+- A custody system
+- A fiat-backed platform
+- A narrative truth system
+- A central authority
+
+### Why It Survives
+- Truth is mechanical
+- No reversals possible
+- No custodial ambiguity
+- No fiat requirement
+- No central control point
+
+### Board Approval Required
+- [ ] Authority hierarchy understood
+- [ ] No custodial risk accepted
+- [ ] No fiat dependency created
+- [ ] No central control established
+- [ ] System survival properties confirmed
+- [ ] Language discipline enforced
+- [ ] Semantic drift mitigation in place
+
+**Approved:** _________________________
+**Date:** _________________________
+
+
+-------------------
+
+# SOVR - One Minute Script
+
+## The Spoken Constitution
+
+**This is how you explain SOVR in 60 seconds.**
+
+**Use this script verbatim.**
+
+**Do not improvise.**
+
+**Memorize this.**
+
+---
+
+### SCRIPT START
+
+"SOVR is a ledger-cleared obligation network.
+
+It does not process payments.
+It does not custody funds.
+It does not promise redemption.
+
+Here’s how it works:
+
+1. **Intent** – A user expresses a claim
+2. **Attestation** – The claim is validated
+3. **Clearing** – The obligation is finalized
+4. **Honoring** – External agents may execute (optional)
+
+Truth is mechanical, not narrative.
+If it did not clear in TigerBeetle, it did not happen.
+
+A cleared obligation does not imply, guarantee, or compel honoring.
+
+Fiat is optional.
+Banks are adapters.
+The system survives because it refuses control."
+
+### SCRIPT END
+
+---
+
+## Stress-Tested Variations
+
+### Variation 1: Regulator Questioning
+
+**Q:** "Where is the money held?"
+
+**A:** "There are no held funds. There are only cleared obligations and voluntary honoring."
+
+---
+
+**Q:** "How do you prevent fraud?"
+
+**A:** "Legitimacy is proven before clearing. Unattested claims are void."
+
+---
+
+**Q:** "What happens if a payment fails?"
+
+**A:** "There are no payments. There are only cleared obligations. Honoring is external and optional."
+
+---
+
+### Variation 2: Anchor Concerns
+
+**Q:** "Will you guarantee my orders are fulfilled?"
+
+**A:** "No. We clear obligations. Honoring is your choice, not our guarantee."
+
+---
+
+**Q:** "What if we refuse an order?"
+
+**A:** "The obligation remains cleared. No rollback. No reversal. No system involvement."
+
+---
+
+**Q:** "How do we know this is safe?"
+
+**A:** "Truth is mechanical. No central control. No custodial risk. No fiat dependency."
+
+---
+
+### Variation 3: Operator Training
+
+**Q:** "Can I manually adjust a balance?"
+
+**A:** "No. Balances are mathematical results of finalized transfers. They are never edited."
+
+---
+
+**Q:** "What if something goes wrong?"
+
+**A:** "Failures require new transfers, not edits. Admins observe. They do not correct reality."
+
+---
+
+**Q:** "How do I explain this to users?"
+
+**A:** "Use the one-minute script. Do not improvise. Memorize it."
+
+---
+
+## Memorization Guide
+
+### Break it into 5 parts:
+
+1. **Definition** (10 sec)
+   - "SOVR is a ledger-cleared obligation network."
+
+2. **What it does NOT do** (10 sec)
+   - "It does not process payments."
+   - "It does not custody funds."
+   - "It does not promise redemption."
+
+3. **How it works** (20 sec)
+   - "1. Intent – A user expresses a claim"
+   - "2. Attestation – The claim is validated"
+   - "3. Clearing – The obligation is finalized"
+   - "4. Honoring – External agents may execute (optional)"
+
+4. **Core principles** (15 sec)
+   - "Truth is mechanical, not narrative."
+   - "If it did not clear in TigerBeetle, it did not happen."
+   - "A cleared obligation does not imply, guarantee, or compel honoring."
+
+5. **Survival property** (5 sec)
+   - "Fiat is optional."
+   - "Banks are adapters."
+   - "The system survives because it refuses control."
+
+---
+
+## Hostile Questioning Defense
+
+### Attack: "This sounds like a bank."
+
+**Response:**
+"Banks custody funds and promise redemption. We clear obligations and make no guarantees."
+
+---
+
+### Attack: "You’re just another payment processor."
+
+**Response:**
+"Payment processors route value. We finalize obligations. Honoring is external."
+
+---
+
+### Attack: "Where’s the money?"
+
+**Response:**
+"There is no money. There are only cleared obligations and voluntary honoring."
+
+---
+
+### Attack: "This will never work without fiat."
+
+**Response:**
+"Fiat is optional. The moment a cleared obligation is honored without referencing fiat, fiat becomes irrelevant."
+
+---
+
+## Common Mistakes (Do NOT Say These)
+
+❌ "We process payments"
+✅ "We clear obligations"
+
+❌ "User funds are held securely"
+✅ "Cleared obligations exist"
+
+❌ "Balances are updated daily"
+✅ "Balances are mathematical results"
+
+❌ "Payments are settled"
+✅ "Obligations are cleared"
+
+❌ "Fiat on/off ramps available"
+✅ "External value translation adapters"
+
+---
+
+## Final Verification
+
+**Ask yourself:**
+
+1. Can I say this in under 60 seconds?
+2. Does it use only allowed terms?
+3. Does it avoid all forbidden language?
+4. Does it survive hostile questioning?
+5. Can operators memorize it?
+
+If yes to all five, you are ready.
+
+**This is the spoken constitution of SOVR.**
+
+**Use it. Memorize it. Defend it.**
+
+
+--------------------
+
+# SOVR OPERATOR DOCTRINE V2
+
+## RULE ZERO: TRUTH IS MECHANICAL
+
+**If it did not clear in TigerBeetle, it did not happen.**
+
+All operator decisions are based on finalized transfers. There are no exceptions.
+
+## RULE ONE: NO PAYMENT PROCESSING
+
+The system clears obligations. Honoring happens externally. The system makes no guarantees.
+
+## RULE TWO: NO BALANCE EDITS
+
+Balances are mathematical results of finalized transfers. They are never manually adjusted. They are never overridden.
+
+## RULE THREE: NO OVERRIDES
+
+Admins observe. They do not correct reality. Failures require new transfers, not edits.
+
+## RULE FOUR: A CLEARED OBLIGATION DOES NOT IMPLY, GUARANTEE, OR COMPEL HONORING
+
+Clearing is finality, not execution. Honoring is external and optional. No system guarantee required.
+
+## RULE FIVE: ATTESTATION FIRST
+
+Legitimacy is proven before clearing. Unattested claims are void. There is no post-facto validation.
+
+## RULE SIX: LEGACY RAILS ARE GUESTS
+
+External agents may honor claims. They never define them. They have no privileged access.
+
+## RULE SEVEN: FIAT IS OPTIONAL
+
+No unit-of-account is privileged. All units are translations. Fiat is never required.
+
+## RULE EIGHT: NO REVERSALS
+
+If a system requires reversal, it is not sovereign-safe. All failures are handled by new transfers. History is never edited.
+
+## OPERATOR COMMANDS
+
+### COMMAND: VERIFY CLEARING
+
+```bash
+# Check TigerBeetle cluster health
+curl http://localhost:3000/status
+
+# Verify transfer finality
+tb-cli get-transfer <transfer-id>
+
+# Confirm no pending obligations
+tb-cli list-pending
+```
+
+### COMMAND: CHECK ATTESTATION
+
+```bash
+# Verify attestor availability
+attestor-cli health
+
+# Check policy compliance
+attestor-cli validate <claim-id>
+
+# Ensure no unattested claims exist
+attestor-cli list-unattested
+```
+
+### COMMAND: OBSERVE NARRATIVE
+
+```bash
+# Verify Postgres sync
+psql -c "SELECT COUNT(*) FROM journal_entries WHERE status = 'Posted';"
+
+# Check analytics
+analytics-cli dashboard
+
+# Review audit trail
+audit-cli tail
+```
+
+### COMMAND: HONORING STATUS
+
+```bash
+# Check external agent status
+honoring-cli status
+
+# Verify cleared claims
+honoring-cli list-cleared
+
+# No system involvement in honoring
+```
+
+## FORBIDDEN COMMANDS
+
+### ❌ NEVER RUN
+
+```bash
+# Manual balance adjustment
+UPDATE account_balances SET current_balance = X WHERE account_id = Y;
+
+# Transfer reversal
+REVERSE TRANSFER <transfer-id>;
+
+# Admin override
+FORCE_SETTLE <transfer-id>;
+
+# Fiat privilege
+SET DEFAULT_CURRENCY 'USD';
+
+# Narrative authority
+UPDATE journal_entries SET status = 'Posted' WHERE id = <id>;
+
+# Semantic reversion
+function processPayment(amount: number) { ... }
+```
+
+## INCIDENT RESPONSE
+
+### INCIDENT: CLEARING FAILURE
+
+1. **Verify cluster health**
+   ```bash
+   curl http://localhost:3000/status
+   ```
+
+2. **Check network connectivity**
+   ```bash
+   tb-cli ping-all
+   ```
+
+3. **Restart failed nodes**
+   ```bash
+   systemctl restart tigerbeetle-nodeX
+   ```
+
+4. **Never override clearing**
+   - No manual settlements
+   - No force operations
+   - Let cluster recover
+
+### INCIDENT: ATTESTATION FAILURE
+
+1. **Verify attestor availability**
+   ```bash
+   attestor-cli health
+   ```
+
+2. **Check policy rules**
+   ```bash
+   attestor-cli list-policies
+   ```
+
+3. **Use fallback attestors**
+   ```bash
+   attestor-cli switch-fallback
+   ```
+
+4. **Never create unattested claims**
+   - No bypass operations
+   - No manual approvals
+   - Let system recover
+
+### INCIDENT: HONORING FAILURE
+
+1. **Verify external agent status**
+   ```bash
+   honoring-cli status
+   ```
+
+2. **Try alternative agents**
+   ```bash
+   honoring-cli switch-agent <agent-id>
+   ```
+
+3. **Never override clearing**
+   - No forced honoring
+   - No system guarantees
+   - Let external systems recover
+
+4. **Never guarantee honoring**
+   - No promises to users
+   - No SLA commitments
+   - Honoring is external
+
+### INCIDENT: OBSERVATION FAILURE
+
+1. **Verify Postgres health**
+   ```bash
+   psql -c "SELECT 1;"
+   ```
+
+2. **Check sync status**
+   ```bash
+   tb-cli sync-status
+   ```
+
+3. **Restart if needed**
+   ```bash
+   systemctl restart postgres
+   ```
+
+4. **No impact on clearing**
+   - Observation is read-only
+   - No system modifications
+   - Clearing continues normally
+
+### INCIDENT: SEMANTIC DRIFT DETECTED
+
+1. **Identify violation**
+   - Locate forbidden language
+   - Document exact wording
+
+2. **Correct immediately**
+   - Replace with allowed terms
+   - Update all references
+
+3. **Retrain operator**
+   - Review blacklist
+   - Conduct training session
+   - Document incident
+
+4. **Prevent recurrence**
+   - Add to language audit
+   - Update documentation
+   - Enforce discipline
+
+## DAILY CHECKLIST
+
+### MORNING (08:00 UTC)
+
+- [ ] Verify TigerBeetle cluster health
+- [ ] Check attestor availability
+- [ ] Review pending obligations
+- [ ] Verify Postgres sync
+- [ ] Check audit trail
+- [ ] No manual interventions
+
+### EVENING (20:00 UTC)
+
+- [ ] Verify all transfers cleared
+- [ ] Check unattested claims (should be 0)
+- [ ] Review honoring agent status
+- [ ] Verify backup completion
+- [ ] No system modifications
+
+## WEEKLY CHECKLIST
+
+### MONDAY (08:00 UTC)
+
+- [ ] Full cluster health check
+- [ ] Attestor policy review
+- [ ] Backup verification
+- [ ] Audit trail review
+- [ ] No system modifications
+
+### FRIDAY (20:00 UTC)
+
+- [ ] End-of-week sync
+- [ ] Honoring agent review
+- [ ] Incident log review
+- [ ] Documentation update
+- [ ] No system modifications
+
+## QUARTERLY CHECKLIST
+
+### FIRST DAY OF QUARTER
+
+- [ ] Full cluster upgrade
+- [ ] Attestor rotation
+- [ ] Policy review
+- [ ] Security audit
+- [ ] No truth modifications
+
+## EMERGENCY PROCEDURES
+
+### EMERGENCY: CLUSTER QUORUM LOST
+
+1. **Do not panic**
+2. **Check node status**
+   ```bash
+   tb-cli node-status
+   ```
+3. **Restart failed nodes**
+   ```bash
+   systemctl restart tigerbeetle-nodeX
+   ```
+4. **Wait for recovery**
+5. **Never override clearing**
+
+### EMERGENCY: ATTESTOR COMPROMISED
+
+1. **Isolate immediately**
+   ```bash
+   attestor-cli isolate <attestor-id>
+   ```
+2. **Switch to fallback**
+   ```bash
+   attestor-cli switch-fallback
+   ```
+3. **Investigate**
+4. **Rotate credentials**
+5. **Never create unattested claims**
+
+### EMERGENCY: UNAUTHORIZED ACCESS
+
+1. **Revoke all sessions**
+   ```bash
+   auth-cli revoke-all
+   ```
+2. **Rotate all keys**
+   ```bash
+   key-cli rotate-all
+   ```
+3. **Audit all transfers**
+   ```bash
+   audit-cli review <timeframe>
+   ```
+4. **No balance modifications**
+5. **Let clearing continue**
+
+### EMERGENCY: SEMANTIC REVERSION DETECTED
+
+1. **Freeze all changes**
+   - Stop all code merges
+   - Halt documentation updates
+   - Pause training sessions
+
+2. **Identify source**
+   - Locate violation origin
+   - Document all instances
+   - Trace propagation
+
+3. **Correct immediately**
+   - Replace all forbidden terms
+   - Update all documents
+   - Retrain all operators
+
+4. **Prevent recurrence**
+   - Implement language audits
+   - Enforce code reviews
+   - Update blacklist
+   - Document lessons learned
+
+## OPERATOR TRAINING
+
+### TRAINING: CLEARING REALITY
+
+**Lesson:** Truth is mechanical, not narrative
+
+**Exercise:**
+1. Submit a transfer
+2. Verify it cleared in TigerBeetle
+3. Confirm Postgres mirror updated
+4. Understand: Postgres is read-only
+
+**Test:**
+- Can you manually edit a balance? (No)
+- Can you reverse a transfer? (No)
+- Can you override clearing? (No)
+
+### TRAINING: ATTESTATION DISCIPLINE
+
+**Lesson:** Legitimacy precedes value
+
+**Exercise:**
+1. Submit an unattested claim
+2. Verify it is rejected
+3. Add attestation
+4. Verify it clears
+
+**Test:**
+- Can you create value without attestation? (No)
+- Can you attest after clearing? (No)
+- Can you override attestation? (No)
+
+### TRAINING: HONORING BOUNDARIES
+
+**Lesson:** Honoring is external, not system function
+
+**Exercise:**
+1. Clear a transfer
+2. Verify no honoring guarantee
+3. Observe external agent honor (or not)
+4. Understand: System is indifferent
+
+**Test:**
+- Does the system guarantee honoring? (No)
+- Can you force honoring? (No)
+- Can you override clearing for honoring? (No)
+
+### TRAINING: LANGUAGE DISCIPLINE
+
+**Lesson:** Language discipline = system survival
+
+**Exercise:**
+1. Identify forbidden terms in sample code
+2. Replace with allowed terms
+3. Document corrections
+4. Understand consequences of violations
+
+**Test:**
+- Can you use "payment" in code? (No)
+- Can you use "balance update"? (No)
+- Can you use "custody"? (No)
+
+## OPERATOR MANTRAS
+
+### MANTRA ONE
+"If it did not clear in TigerBeetle, it did not happen."
+
+### MANTRA TWO
+"Balances are mathematical results. They are never edited."
+
+### MANTRA THREE
+"Admins observe. They do not correct reality."
+
+### MANTRA FOUR
+"A cleared obligation does not imply, guarantee, or compel honoring."
+
+### MANTRA FIVE
+"Legitimacy is proven before clearing. Unattested claims are void."
+
+### MANTRA SIX
+"External agents may honor claims. They never define them."
+
+### MANTRA SEVEN
+"Fiat is optional. No unit-of-account is privileged."
+
+### MANTRA EIGHT
+"If a system requires reversal, it is not sovereign-safe."
+
+### MANTRA NINE
+"Language discipline = system survival."
+
+## FINAL VERDICT
+
+Operators who violate doctrine are not "mistaken" — they are **dangerous**.
+
+**This is not fintech. This is clearing reality itself.**
