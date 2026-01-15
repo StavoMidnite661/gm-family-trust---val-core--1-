@@ -11,6 +11,7 @@
  * 2. This service = Narrative Mirror (observation only)
  */
 
+import { Pool, PoolConfig } from 'pg';
 import type {
   INarrativeMirror,
   RecordNarrativeEntryRequest,
@@ -18,7 +19,7 @@ import type {
   NarrativeEntry,
   AnchorAuthorization,
   AnchorType,
-  NarrativeStatus,
+  NarrativeLine,
 } from '../shared/narrative-mirror-bridge';
 
 import {
@@ -34,15 +35,23 @@ import {
 // =============================================================================
 
 interface NarrativeMirrorConfig {
-  baseUrl: string;
+  baseUrl?: string;
   apiKey?: string;
   timeout?: number;
+  postgres?: PoolConfig;
 }
 
 const DEFAULT_CONFIG: NarrativeMirrorConfig = {
   baseUrl: process.env.NARRATIVE_MIRROR_URL || 'http://localhost:3001',
   apiKey: process.env.NARRATIVE_MIRROR_API_KEY,
   timeout: 30000,
+  postgres: process.env.POSTGRES_URL ? { connectionString: process.env.POSTGRES_URL } : {
+    user: process.env.POSTGRES_USER || 'sovr_admin',
+    password: process.env.POSTGRES_PASSWORD || 'sovereignty_is_mechanical',
+    host: process.env.POSTGRES_HOST || 'localhost',
+    port: parseInt(process.env.POSTGRES_PORT || '5432'),
+    database: process.env.POSTGRES_DB || 'sovr_narrative',
+  }
 };
 
 // =============================================================================
@@ -52,14 +61,30 @@ const DEFAULT_CONFIG: NarrativeMirrorConfig = {
 export class NarrativeMirrorService implements INarrativeMirror {
   private config: NarrativeMirrorConfig;
   private narrativeIdCounter: number = 0;
+  private pool: Pool | null = null;
+  private isPostgresConnected: boolean = false;
   
-  // Narrative storage (observation records, NOT authoritative balances)
+  // Memory fallback storage (observation records, NOT authoritative balances)
   private narrativeRecords: Map<string, NarrativeEntry> = new Map();
   private observedBalances: Map<number, bigint> = new Map();
 
   constructor(config: Partial<NarrativeMirrorConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.initializeObservedBalances();
+    this.initializePostgres();
+  }
+
+  private async initializePostgres() {
+    try {
+      this.pool = new Pool(this.config.postgres);
+      const client = await this.pool.connect();
+      this.isPostgresConnected = true;
+      console.log('[NARRATIVE MIRROR] Connected to Postgres Narrative Storage');
+      client.release();
+    } catch (e) {
+      console.warn('[NARRATIVE MIRROR] Postgres connection failed, falling back to memory:', e);
+      this.isPostgresConnected = false;
+    }
   }
 
   private initializeObservedBalances(): void {
@@ -77,6 +102,12 @@ export class NarrativeMirrorService implements INarrativeMirror {
   // ===========================================================================
   // NARRATIVE RECORDING (OBSERVATION ONLY - NEVER AUTHORITATIVE)
   // ===========================================================================
+
+  private stringifyWithBigInt(obj: any): string {
+    return JSON.stringify(obj, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    );
+  }
 
   async recordNarrativeEntry(
     request: RecordNarrativeEntryRequest
@@ -113,6 +144,48 @@ export class NarrativeMirrorService implements INarrativeMirror {
         userId: request.userId
       };
 
+      if (this.isPostgresConnected && this.pool) {
+        // Persist to Postgres
+        const client = await this.pool.connect();
+        try {
+          await client.query('BEGIN');
+          
+          await client.query(
+            `INSERT INTO journal_entries 
+            (id, date, description, source, status, event_id, user_id, attestation_hash, tx_hash, raw_data)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+              narrativeEntry.id,
+              narrativeEntry.date,
+              narrativeEntry.description,
+              narrativeEntry.source,
+              narrativeEntry.status,
+              narrativeEntry.eventId,
+              narrativeEntry.userId,
+              narrativeEntry.attestationHash,
+              narrativeEntry.txHash,
+              this.stringifyWithBigInt(narrativeEntry)
+            ]
+          );
+
+          for (const line of narrativeEntry.lines) {
+            await client.query(
+              `INSERT INTO journal_lines (journal_id, account_id, type, amount) VALUES ($1, $2, $3, $4)`,
+              [narrativeEntry.id, line.accountId, line.type, line.amount.toString()]
+            );
+          }
+
+          await client.query('COMMIT');
+        } catch (e) {
+          await client.query('ROLLBACK');
+          console.error('[NARRATIVE MIRROR] Postgres write failed:', e);
+          throw e;
+        } finally {
+          client.release();
+        }
+      } 
+      
+      // Always update in-memory cache/fallback
       this.narrativeRecords.set(narrativeEntry.id, narrativeEntry);
 
       // Update observed balances (NOT authoritative)
@@ -138,12 +211,49 @@ export class NarrativeMirrorService implements INarrativeMirror {
   }
 
   async getNarrativeEntry(id: string): Promise<NarrativeEntry | null> {
+    if (this.isPostgresConnected && this.pool) {
+      const res = await this.pool.query('SELECT raw_data FROM journal_entries WHERE id = $1', [id]);
+      if (res.rows.length > 0) {
+        const entry = res.rows[0].raw_data;
+        // Rehydrate BigInts from JSON string
+        entry.lines = entry.lines.map((l: any) => ({ ...l, amount: BigInt(l.amount) }));
+        return entry;
+      }
+      return null;
+    }
     return this.narrativeRecords.get(id) || null;
   }
 
   async getNarrativeEntriesByEventId(eventId: string): Promise<NarrativeEntry[]> {
+    if (this.isPostgresConnected && this.pool) {
+      const res = await this.pool.query('SELECT raw_data FROM journal_entries WHERE event_id = $1', [eventId]);
+      return res.rows.map(row => {
+        const entry = row.raw_data;
+        entry.lines = entry.lines.map((l: any) => ({ ...l, amount: BigInt(l.amount) }));
+        return entry;
+      });
+    }
     return Array.from(this.narrativeRecords.values())
       .filter(entry => entry.eventId === eventId);
+  }
+
+  async getAllNarrativeEntries(): Promise<NarrativeEntry[]> {
+    if (this.isPostgresConnected && this.pool) {
+      const res = await this.pool.query('SELECT raw_data FROM journal_entries ORDER BY date DESC, created_at DESC LIMIT 100');
+      return res.rows.map(row => {
+        const entry = row.raw_data;
+        entry.lines = entry.lines.map((l: any) => ({ ...l, amount: BigInt(l.amount) }));
+        return entry;
+      });
+    }
+    return Array.from(this.narrativeRecords.values())
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+  
+  // Accessor for the memory map (used by server.ts demo seeder logic fallback)
+  // This helps maintain compatibility with existing demo code while we transition
+  public getMemoryRecords(): Map<string, NarrativeEntry> {
+    return this.narrativeRecords;
   }
 
   // ===========================================================================
@@ -151,6 +261,8 @@ export class NarrativeMirrorService implements INarrativeMirror {
   // ===========================================================================
 
   async getObservedAccountBalance(accountId: number): Promise<bigint> {
+    // In a real implementation, this would query a materialized view in Postgres.
+    // For now, we rely on the memory cache which is updated on every record call (even if PG is active)
     return this.observedBalances.get(accountId) || 0n;
   }
 

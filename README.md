@@ -20,7 +20,7 @@ The SOVR protocol enforces a non-negotiable authority hierarchy. Truth is mechan
 
 2.  **Backend (`val/core`)** — The **authority gateway**. Orchestrates the clearing flow but holds no authority itself. Translates user intent into ledger commands.
 
-3.  **Honoring Adapters (`val/adapters`)** — **Downstream guests**. Optional external agents (Stripe, Instacart, etc.) that may act upon *already cleared* obligations. They have no authority to approve, deny, or reverse clearing.
+3.  **Honoring Adapters (`val/adapters`)** — **Downstream guests**. Optional external agents (Stripe, Instacart, etc.) that may act upon _already cleared_ obligations. They have no authority to approve, deny, or reverse clearing.
 
 4.  **Narrative Mirror (`val/core/narrative-mirror-service.ts`)** — A **read-only observer**. It records the results of cleared transactions for auditing and human-readable logs. It has zero authority and is never consulted for balance checks or clearing decisions.
 
@@ -32,56 +32,45 @@ The protocol mandates a "clearing-before-honoring" execution sequence. This is n
 
 ```mermaid
 sequenceDiagram
-    participant U as User / API Client
-    participant SE as SpendEngine
-    participant TB as TigerBeetle (Clearing Authority)
+    participant U as User / Client
+    participant A as Attestor (Server)
+    participant TB as TigerBeetle (Authority)
     participant HA as Honoring Adapter
     participant NM as Narrative Mirror
 
-    U->>SE: spendCredit(intent)
+    U->>A: Sign(Intent) -> POST /api/spend
 
-    SE->>TB: createTransfer(intent)
-    TB-->>SE: Transfer Committed (Final)
+    Note over A: Verify Signature & Policy
 
-    SE->>HA: honor(intent)
-    HA-->>SE: Success / Failure
+    A->>A: Generate Attestation (Proof of Validity)
 
-    SE-->>NM: observe(cleared_obligation, honoring_result)
+    A->>TB: createTransfer(AttestedIntent)
+    TB-->>A: Transfer Committed (Final)
 
-    NM-->>NM: Record narrative only
+    A->>HA: honor(AttestedIntent)
+    HA-->>A: Success / Failure
+
+    A-->>NM: observe(cleared_obligation, honoring_result)
+
+    NM-->>NM: Record to Postgres (or Memory)
 ```
 
 ### Key Guarantees:
-*   **Clearing is Atomic and Final:** The `createTransfer` call to TigerBeetle is the single, authoritative event.
-*   **Honoring is Non-Authoritative:** Honoring adapters can fail without affecting the ledger's state. Failures create new obligations, never rollbacks.
-*   **Narrative is Never on the Critical Path:** The narrative mirror is a passive listener. Its failure cannot block clearing.
 
----
-
-## Protocol Hardening & Governance
-
-The SOVR authority model is protected against future regressions through several layers of enforcement.
-
-### 1. Structural Isolation
-The TigerBeetle clearing authority is physically isolated in the `val/clearing/tigerbeetle/` directory. This makes it structurally impossible for core business logic to accidentally bypass or misuse the clearing mechanism.
-
-See the authority contract at [`val/clearing/tigerbeetle/README.md`](val/clearing/tigerbeetle/README.md).
-
-### 2. Governance Lock
-The core principles of the authority model are constitutionally locked in the `.val/LOCKED_AUTHORITY.md` file. Any change that violates these rules is considered an automatic audit failure. This file serves as a permanent tripwire for all future development.
-
-### 3. "No Reversals" Doctrine
-The protocol strictly forbids reversals, rollbacks, or refunds. All failures or adjustments are handled by creating **new obligations** on the ledger. This is enforced in the `spendCredit` function, where a failure in the honoring stage results in a `HONORING_FAILED` event, not a reversal of the cleared transaction.
+- **Cryptographic Integrity:** All intents are signed by the user. All validity is attested by the server.
+- **Clearing is Atomic and Final:** The `createTransfer` call to TigerBeetle is the single, authoritative event.
+- **Honoring is Non-Authoritative:** Honoring adapters can fail without affecting the ledger's state. Failures create new obligations, never rollbacks.
+- **Narrative is Never on the Critical Path:** The narrative mirror is a passive listener. Its failure cannot block clearing.
 
 ---
 
 ## Technology Stack
 
--   **Frontend**: React 18 + TypeScript + Vite
--   **Backend**: Node.js + Express + tsx
--   **Clearing Authority**: TigerBeetle
--   **Narrative Mirror**: In-memory (for demo), PostgreSQL (production)
--   **Cryptography**: ethers.js v6
+- **Frontend**: React 18 + TypeScript + Vite + ethers.js (Client Signing)
+- **Backend**: Node.js + Express + tsx + ethers.js (Attestation)
+- **Clearing Authority**: TigerBeetle (Native Binary on Port 3000)
+- **Narrative Mirror**: PostgreSQL (Port 5433)
+- **Infrastructure**: Docker Compose (Postgres only) + Native TigerBeetle
 
 ---
 
@@ -89,9 +78,10 @@ The protocol strictly forbids reversals, rollbacks, or refunds. All failures or 
 
 ### Prerequisites
 
--   Node.js 18+
--   npm or yarn
--   A running TigerBeetle cluster
+- Node.js 18+
+- npm or yarn
+- Docker & Docker Compose
+- TigerBeetle Native Binary (included in `tigerbeetle-main`)
 
 ### Installation
 
@@ -108,17 +98,25 @@ npm install
 
 To run the full stack, you will need **three separate terminals**.
 
-**1. Start the TigerBeetle Server (Port 3000)**
+**1. Start the Infrastructure (TigerBeetle + Postgres)**
 
-The VAL Core protocol depends on a running TigerBeetle database. The source code for this is in the `tigerbeetle-main (1)/` directory for reference.
+We use Docker for Postgres and a native binary for TigerBeetle (due to `io_uring` kernel requirements).
 
 ```bash
-# Navigate to your compiled TigerBeetle executable's directory
-# This command starts a single-node cluster for local development.
-./tigerbeetle start --cluster=0 --replica=0 --addresses=3000
+# Terminal 1: Start Postgres (Port 5433)
+npm run infra:up
+
+# Terminal 2: Start TigerBeetle (Port 3000)
+# Windows:
+.\tigerbeetle.exe start --addresses=0.0.0.0:3000 tigerbeetle_data/0_0.tigerbeetle
+
+# Linux/Mac:
+./tigerbeetle start --addresses=0.0.0.0:3000 tigerbeetle_data/0_0.tigerbeetle
 ```
 
 **2. Start the Backend Authority Gateway (Port 3001)**
+
+This service connects to the infrastructure, initializes the ledger accounts, and listens for signed intents.
 
 ```bash
 # In a new terminal, from the project root
@@ -127,6 +125,8 @@ npm run server
 
 **3. Start the Frontend Application (Port 5173)**
 
+The command terminal for the GM Family Trust.
+
 ```bash
 # In a third terminal, from the project root
 npm run dev
@@ -134,6 +134,15 @@ npm run dev
 
 ---
 
+## Security Model
+
+1.  **Client-Side Signing**: The Frontend generates an ephemeral "Admin" wallet (or connects to one) to sign every `spend` intent.
+2.  **Signature Verification**: The Backend verifies the signature against the known Admin address before processing.
+3.  **Attestation**: The Backend issues a secondary "System Attestation" using its own private key to prove the transaction was policy-checked before being sent to the ledger.
+4.  **Mechanical Truth**: TigerBeetle rejects any double-spends or invalid transfers at the protocol level.
+
+---
+
 ## License
 
-© 2024 SOVR Development Holdings LLC. All rights reserved.
+© 2026 SOVR Development Holdings LLC. All rights reserved.

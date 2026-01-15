@@ -8,6 +8,7 @@ import { EventLogger } from './events/logger';
 import { SquareAdapter } from './adapters/square_adapter';
 import { TangoAdapter } from './adapters/tango_adapter';
 import { InstacartAdapter } from './adapters/instacart_adapter';
+import { getTigerBeetle } from './clearing/tigerbeetle/client';
 
 export class VALSystem {
   private attestationEngine: AttestationEngine;
@@ -16,7 +17,7 @@ export class VALSystem {
   
   constructor(
     attestorPrivateKey: string,
-    provider: ethers.providers.Provider,
+    provider: ethers.Provider,
     config: {
       square?: { apiKey: string; locationId: string };
       tango?: { platformName: string; platformKey: string; sandbox?: boolean };
@@ -48,6 +49,14 @@ export class VALSystem {
     // Register Instacart Adapter (Zero-Float)
     const instacartAdapter = new InstacartAdapter();
     this.spendEngine.registerAdapter(instacartAdapter);
+  }
+
+  /**
+   * Initialize async components (TigerBeetle Accounts)
+   */
+  async initialize(): Promise<void> {
+    const tb = getTigerBeetle();
+    await tb.initializeReferenceAccounts();
   }
   
   /**

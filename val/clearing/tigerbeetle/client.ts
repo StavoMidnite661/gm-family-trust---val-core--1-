@@ -8,7 +8,7 @@
  */
 
 import { createClient, Transfer, Account, Client } from 'tigerbeetle-node';
-import { NARRATIVE_ACCOUNTS as ORACLE_ACCOUNTS, AccountType } from '../shared/narrative-mirror-bridge';
+import { NARRATIVE_ACCOUNTS as ORACLE_ACCOUNTS, AccountType } from '../../shared/narrative-mirror-bridge';
 
 // Configuration
 const TB_CLUSTER_ID = 0n;
@@ -160,11 +160,19 @@ export class TigerBeetleService {
     try {
       const errors = await this.client.createTransfers([transfer]);
       if (errors.length > 0) {
-        console.error('[TigerBeetle] Transfer failed:', errors);
-        // In a full implementation, we would check if error is "Exists" (idempotency)
-        // and return 'true' if it matches, or throw if mismatch.
-        // For now, failure to create is false.
-        return false;
+        // Idempotency Check:
+        // Error 46 = exists (transfer with this ID already exists)
+        // In a perfect system we'd verify the existing transfer matches params.
+        // For now, we accept "exists" as "already processed" -> success.
+        const realErrors = errors.filter(e => e.result !== 46);
+        
+        if (realErrors.length > 0) {
+          console.error('[TigerBeetle] Transfer failed:', realErrors);
+          return false;
+        } else {
+          console.warn(`[TigerBeetle] Transfer ${transferId} already exists (Idempotent success)`);
+          return true;
+        }
       }
       return true;
     } catch (e) {

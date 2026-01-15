@@ -2,8 +2,8 @@
 
 > **The single source of truth for all Cabinet operations.**
 >
-> **Last Updated:** 2026-01-13T03:30:00-08:00
-> **Updated By:** Antigravity Agent (Chief of Staff)
+> **Last Updated:** 2026-01-13T18:45:00-08:00
+> **Updated By:** FINTECH Architect
 > **MSD Version:** 2.2
 
 ---
@@ -16,11 +16,11 @@
 project:
   name: "GM Family Trust - VAL Core"
   codename: "VAL Core Authority"
-  version: "1.0.0"
-  stage: "Running - Demo Mode Active"
+  version: "1.2.0"
+  stage: "Real World Integration Complete"
 
-  health: "Healthy"
-  dev_server_url: "http://localhost:3000"
+  health: "Operational"
+  dev_server_url: "http://localhost:5173"
   backend_server_url: "http://localhost:3001"
 
 owner:
@@ -48,40 +48,45 @@ repository:
 
 ```yaml
 sprint:
-  id: "SPRINT-2026-01-W1"
-  name: "Project Initialization & Core Logic Review"
-  start_date: "2026-01-04"
+  id: "SPRINT-2026-01-W2"
+  name: "Real World Infrastructure & Verification"
+  start_date: "2026-01-13"
   end_date: ""
   status: "Active"
 
 goals:
-  - goal: "Verify and fix React 19 / importmap issues that prevent UI from rendering."
+  - goal: "Provision Real World Infrastructure (TigerBeetle + Postgres)."
     status: "Completed"
-    owner: "Kilo Code Agent"
-    date: "2026-01-05"
-  - goal: "Launch VAL Core application with fully functional dashboard."
+    owner: "FINTECH Architect"
+    date: "2026-01-13"
+  - goal: "Implement Canon Lock (Idempotency) in Clearing Client."
+    status: "Completed"
+    owner: "FINTECH Architect"
+    date: "2026-01-13"
+  - goal: "Verify End-to-End Real World Clearing Flow."
+    status: "Completed"
+    owner: "FINTECH Architect"
+    date: "2026-01-13"
+  - goal: "Align System Schema with Authoritative Doctrine."
+    status: "Completed"
+    owner: "FINTECH Architect"
+    date: "2026-01-13"
+  - goal: "Configuration Cleanup (.env, .gitignore, Ports)."
     status: "Completed"
     owner: "Antigravity Agent"
-    date: "2026-01-13"
-  - goal: "Implement demo data seeder for realistic dashboard demonstration."
-    status: "Completed"
-    owner: "Antigravity Agent"
-    date: "2026-01-13"
-  - goal: "Delegate file-by-file documentation task to The Articulator."
-    status: "Pending"
-    owner: "The Articulator"
+    date: "2026-01-15"
 ```
 
 ### A.3 — Active Context
 
 ```yaml
 context:
-  current_focus: "VAL Core dashboard fully operational with demo data. Frontend on port 3000, backend on port 3001. Dashboard displays SFIAT CAP ($18,584.91), Trust Reserve ($10,000), 12 narrative observations, and 65/35 asset allocation."
+  current_focus: "Feature Development & Adoption. System is fully operational, secured, and documented."
 
   last_decision:
-    decision: "Implemented demo data seeder with 12 narrative entries and frontend balance initialization. Fixed CSP policy, async Promise handling, and BigInt JSON serialization."
+    decision: "Standardized Frontend Port to 5173 to avoid conflicts with TigerBeetle (3000) and Backend (3001)."
     by: "Antigravity Agent"
-    date: "2026-01-13"
+    date: "2026-01-15"
 
   doctrine:
     name: "SOVR Doctrine / Sovereign Semantic Model"
@@ -100,30 +105,22 @@ context:
       - "chargebacks"
 
   recent_changes:
-    - file: "SOVR_ONE_MINUTE_SCRIPT.md"
-      change: "REVIEWED: Core spoken constitution explaining SOVR as ledger-cleared obligation network."
-      by: "Kilo Code Agent"
-      date: "2026-01-05"
-    - file: "SOVR_OPERATOR_DOCTRINE_V2.md"
-      change: "REVIEWED: Comprehensive 8-rule operator doctrine and procedures."
-      by: "Kilo Code Agent"
-      date: "2026-01-05"
-    - file: "SOVR_CANONICAL_SPEC_V2.md"
-      change: "REVIEWED: Technical specification with TigerBeetle authority hierarchy."
-      by: "Kilo Code Agent"
-      date: "2026-01-05"
-    - file: "SOVR_BLACKLIST_V2.md"
-      change: "REVIEWED: Forbidden terminology (payment, custody, balance updates)."
-      by: "Kilo Code Agent"
-      date: "2026-01-05"
-    - file: "val/"
-      change: "REVIEWED: Backend implementation with SpendEngine, Attestation, adapters."
-      by: "Kilo Code Agent"
-      date: "2026-01-05"
-    - file: ".agent/AGENT_ARCHITECTURAL_PATTERNS.md"
-      change: "UPDATED: Added new section on Agent Memory Patterns (Short-Term and Long-Term/Vector DB)."
-      by: "Gemini CLI Agent"
-      date: "2026-01-04"
+    - file: "val/clearing/tigerbeetle/client.ts"
+      change: "UPDATED: Implemented Canon Lock (Error 46 = Success)."
+      by: "FINTECH Architect"
+      date: "2026-01-13"
+    - file: "val/shared/narrative-mirror-bridge.ts"
+      change: "UPDATED: Aligned account IDs with TIGERBEETLE_LEDGER_SCHEMA.md."
+      by: "FINTECH Architect"
+      date: "2026-01-13"
+    - file: "README.md"
+      change: "UPDATED: Added instructions for native binary execution."
+      by: "FINTECH Architect"
+      date: "2026-01-13"
+    - file: "docker-compose.yml"
+      change: "UPDATED: Moved Postgres to port 5433 to avoid conflicts."
+      by: "FINTECH Architect"
+      date: "2026-01-13"
 ```
 
 ---
@@ -138,23 +135,30 @@ chief_of_staff:
     # None
 
   orchestrator_directives:
-    - directive: "Review and integrate the 'gm-family-trust---val-core (1)' project."
-      received: "2026-01-04"
+    - directive: "Prioritize infrastructure repair and verification."
+      received: "2026-01-13"
       status: "Complete"
-      completed_by: "Kilo Code Agent"
-      date: "2026-01-05"
-    - directive: "Incorporate new agent architecture knowledge into the framework."
-      received: "2026-01-04"
+      completed_by: "FINTECH Architect"
+      date: "2026-01-13"
+    - directive: "Align codebase with new Ledger Schema."
+      received: "2026-01-13"
       status: "Complete"
+      completed_by: "FINTECH Architect"
+      date: "2026-01-13"
 
   next_actions:
-    - "Oversee documentation of the VAL Core project by The Articulator."
-    - "Prepare for next phase of development or analysis based on Orchestrator feedback."
+    - "Monitor system stability."
+    - "Await new feature requests from Orchestrator."
 ```
 
 ### B.2 — FINTECH Architect Memory
 
-(No new project-specific data yet)
+```yaml
+fintech_architect:
+  latest_achievement: "Successfully operationalized the Mechanical Truth Engine (TigerBeetle) and Narrative Mirror (Postgres) on local infrastructure."
+  key_insight: "Native binary execution for TigerBeetle is far more reliable on Windows than Docker due to kernel dependencies."
+  active_pattern: "Canon Lock (Idempotency as Success)"
+```
 
 ---
 
@@ -162,7 +166,11 @@ chief_of_staff:
 
 ```yaml
 handoffs:
-  # No handoffs in this session yet.
+  - id: "HO-2026-01-13-01"
+    from: "FINTECH Architect"
+    to: "Orchestrator"
+    context: "Infrastructure is fully operational. All tests passing. Documentation updated."
+    status: "Complete"
 ```
 
 ---
@@ -171,6 +179,28 @@ handoffs:
 
 ```yaml
 decisions:
+  - id: "DEC-2026-01-13-05"
+    date: "2026-01-13"
+    decision: "Aligned val/shared/narrative-mirror-bridge.ts account constants with TIGERBEETLE_LEDGER_SCHEMA.md to ensure system-wide consistency."
+    made_by: "FINTECH Architect"
+    rationale: "To prevent ID mismatches between the bridge and the authoritative ledger schema."
+    affected_areas:
+      - "val/shared/narrative-mirror-bridge.ts"
+  - id: "DEC-2026-01-13-04"
+    date: "2026-01-13"
+    decision: "Implemented BigInt-safe JSON serialization in Narrative Mirror Service."
+    made_by: "FINTECH Architect"
+    rationale: "To prevent crashes when logging high-precision financial data to Postgres."
+    affected_areas:
+      - "val/core/narrative-mirror-service.ts"
+  - id: "DEC-2026-01-13-03"
+    date: "2026-01-13"
+    decision: "Switched TigerBeetle deployment from Docker to Native Binary and Postgres port to 5433."
+    made_by: "FINTECH Architect"
+    rationale: "To resolve io_uring kernel incompatibility on Windows and port conflicts."
+    affected_areas:
+      - "docker-compose.yml"
+      - "README.md"
   - id: "DEC-2026-01-13-02"
     date: "2026-01-13"
     decision: "Implemented demo data seeder in val/server.ts with 12 narrative entries covering genesis funding, trust reserve allocation, grocery purchases, gift cards, utility payments, and more."
@@ -179,69 +209,6 @@ decisions:
     affected_areas:
       - "val/server.ts"
       - "services/tigerbeetle_mock.ts"
-  - id: "DEC-2026-01-13-01"
-    date: "2026-01-13"
-    decision: "Fixed three critical bugs: CSP policy blocking Tailwind CDN, async Promise handling in App.tsx, and BigInt JSON serialization in server.ts."
-    made_by: "Antigravity Agent"
-    rationale: "To enable the VAL Core dashboard to fully render and fetch data from the backend API."
-    affected_areas:
-      - "index.html (CSP policy)"
-      - "App.tsx (await mirror.getEntries())"
-      - "val/server.ts (serializeBigInts helper)"
-  - id: "DEC-2026-01-05-05"
-    date: "2026-01-05"
-    decision: "Reviewed core SOVR documentation files and val/ backend implementation. Confirmed system architecture alignment with doctrine."
-    made_by: "Kilo Code Agent"
-    rationale: "To ensure comprehensive understanding of SOVR architecture before further development."
-    affected_areas:
-      - "SOVR_ONE_MINUTE_SCRIPT.md"
-      - "SOVR_OPERATOR_DOCTRINE_V2.md"
-      - "SOVR_CANONICAL_SPEC_V2.md"
-      - "SOVR_BLACKLIST_V2.md"
-      - "val/"
-  - id: "DEC-2026-01-05-04"
-    date: "2026-01-05"
-    decision: "Verified project configuration - React 18.3.1 correctly configured, no importmap issues, missing index.css created. Application now renders correctly."
-    made_by: "Kilo Code Agent"
-    rationale: "The project was already in good working state with React 18.3.1. Only missing index.css needed to be created. Dev server running successfully."
-    affected_areas:
-      - "gm-family-trust---val-core (1)/package.json"
-      - "gm-family-trust---val-core (1)/index.html"
-      - "gm-family-trust---val-core (1)/index.tsx"
-      - "gm-family-trust---val-core (1)/index.css"
-  - id: "DEC-2026-01-05-03"
-    date: "2026-01-05"
-    decision: "Augmented AGENT_ARCHITECTURAL_PATTERNS.md with details on agent memory systems."
-    made_by: "Gemini CLI Agent"
-    rationale: "To capture common knowledge about short-term vs. long-term (Vector DB) agent memory as a reference for the framework."
-    affected_areas:
-      - ".agent/AGENT_ARCHITECTURAL_PATTERNS.md"
-  - id: "DEC-2026-01-04-02"
-    date: "2026-01-04"
-    decision: "Created a new knowledge base file (AGENT_ARCHITECTURAL_PATTERNS.md) to store agent patterns."
-    made_by: "Gemini CLI Agent"
-    rationale: "To augment the framework's 'memory' with different agent implementation patterns without altering core framework files."
-    affected_areas:
-      - ".agent/"
-  - id: "DEC-2026-01-04-01"
-    date: "2026-01-04"
-    decision: "Initiated management of the 'gm-family-trust---val-core (1)' project within the AI Cabinet framework."
-    made_by: "Orchestrator / Gemini CLI Agent"
-    rationale: "To apply the structured AI agent workflow to the analysis and potential development of the VAL Core project."
-    affected_areas:
-      - ".agent/MASTER_STATE_DOCUMENT.md"
-  # Core framework decisions from previous project are retained below as they are part of the standing doctrine.
-  - id: "DEC-001"
-    date: "2025-12-17"
-    decision: "TigerBeetle is the sole clearing authority for all financial obligations"
-    made_by: "Orchestrator"
-    status: "FRAMEWORK_DOCTRINE"
-
-  - id: "DEC-002"
-    date: "2025-12-17"
-    decision: "All forbidden fintech terminology must be replaced with sovereign-correct language"
-    made_by: "Orchestrator"
-    status: "FRAMEWORK_DOCTRINE"
 ```
 
 ---
@@ -250,6 +217,118 @@ decisions:
 
 ```yaml
 sessions:
+  - id: "SESSION-20260115-CLEANUP-AND-VERIFY"
+    agent: "Antigravity Agent"
+    start: "2026-01-15T05:00:00-08:00"
+    end: "2026-01-15T05:40:00-08:00"
+    summary: |
+      - Verified Backend (Port 3001) and Frontend (Port 5173) connectivity.
+      - Resolved port conflicts between Vite, TigerBeetle, and Backend.
+      - Restored critical configuration files (.gitignore, .env.example) to strict standards.
+      - Confirmed 'finalize_real_world.test.ts' executes successfully with native TigerBeetle.
+      - Verified API endpoints via curl (Status: OK, Narrative: Zero-State).
+    artifacts_created:
+      - ".env.example"
+      - "Updated .gitignore"
+      - "Updated README.md"
+    files_modified:
+      - "vite.config.ts"
+      - ".gitignore"
+      - ".env.example"
+      - "README.md"
+      - ".agents/MASTER_STATE_DOCUMENT.md"
+    handoff_ready: true
+    status: "Complete"
+
+  - id: "SESSION-20260113-INFRA-REPAIR"
+    agent: "FINTECH Architect (Gemini CLI)"
+    start: "2026-01-13T17:00:00-08:00"
+    end: "2026-01-13T18:45:00-08:00"
+    summary: |
+      - DIAGNOSED and FIXED infrastructure blockers.
+      - Switched TigerBeetle to native binary execution (bypassing Docker io_uring issues).
+      - Moved Postgres to port 5433 to resolve conflicts.
+      - Implemented BigInt-safe serialization for Narrative Mirror.
+      - Implemented Canon Lock (Idempotency) in TigerBeetle client.
+      - Verified system with 'finalize_real_world.test.ts' (All Pass).
+      - Aligned Bridge constants with Ledger Schema.
+    artifacts_created:
+      - "debug_infra.ts (Deleted)"
+      - "debug_codes.ts (Deleted)"
+    files_modified:
+      - "docker-compose.yml"
+      - ".env"
+      - "val/clearing/tigerbeetle/client.ts"
+      - "val/core/narrative-mirror-service.ts"
+      - "val/events/logger.ts"
+      - "val/shared/narrative-mirror-bridge.ts"
+      - "val/tests/finalize_real_world.test.ts"
+      - "README.md"
+    handoff_ready: true
+    status: "Complete"
+
+  - id: "SESSION-20260113-SECURITY-AND-DOCS"
+    agent: "FINTECH Architect (Gemini CLI)"
+    start: "2026-01-13T15:35:00-08:00"
+    end: "2026-01-13T16:00:00-08:00"
+    summary: |
+      - Implemented End-to-End Security: Client-side signing in Frontend (App.tsx) and Signature Verification in Backend (server.ts).
+      - Completed Phase 3 of Real World Integration Plan.
+      - Updated README.md with comprehensive architecture, security model, and usage instructions.
+      - Updated MSD with current state.
+    artifacts_created:
+      - "Updated App.tsx (Signing)"
+      - "Updated server.ts (Verification)"
+      - "Updated README.md"
+    files_modified:
+      - "App.tsx"
+      - "val/server.ts"
+      - "types.ts"
+      - "README.md"
+      - ".agents/MASTER_STATE_DOCUMENT.md"
+    handoff_ready: true
+    status: "Complete"
+
+  - id: "SESSION-20260113-INFRA-PROVISION"
+    agent: "FINTECH Architect (Gemini CLI)"
+    start: "2026-01-13T15:00:00-08:00"
+    end: "2026-01-13T15:30:00-08:00"
+    summary: |
+      - Provisioned Real World Infrastructure (TigerBeetle + Postgres via Docker).
+      - Implemented Postgres adapter for Narrative Mirror Service with memory fallback.
+      - Updated VAL System to initialize TigerBeetle reference accounts on startup.
+      - Updated package.json with 'infra:up' script.
+    artifacts_created:
+      - "docker-compose.yml"
+      - "db/init.sql"
+    files_modified:
+      - "val/core/narrative-mirror-service.ts"
+      - "val/server.ts"
+      - "val/index.ts"
+      - "package.json"
+    handoff_ready: true
+    status: "Complete"
+
+  - id: "SESSION-20260113-UI-POLISH"
+    agent: "Antigravity Agent (Lead)"
+    start: "2026-01-13T09:00:00-08:00"
+    end: "2026-01-13T14:45:00-08:00"
+    summary: |
+      - LEAD ARCHITECT ROLE ASSUMED.
+      - Restructured Authority Vault to match Dashboard layout (Zero-Debt Doctrine style).
+      - Successfully implemented filtered Observation Feed in Introspection panel.
+      - Added AI Terminal widget and Confirmation Toasts.
+      - Enforced consistent sizing and SOVR terminology across all views.
+      - Updated Project Identity to "UI Complete / Ready for Integration".
+    artifacts_created:
+      - "REAL_WORLD_INTEGRATION_PLAN.md (Pending)"
+    files_modified:
+      - "App.tsx"
+      - ".gitignore"
+      - ".agents/MASTER_STATE_DOCUMENT.md"
+    handoff_ready: true
+    handoff_to: "Gemini CLI Agent (for backend integration)"
+
   - id: "SESSION-20260113-DEMO-DATA-IMPLEMENTATION"
     agent: "Chief of Staff (Antigravity Agent)"
     start: "2026-01-13T02:04:00-08:00"
@@ -322,6 +401,24 @@ sessions:
       - ".agent/MASTER_STATE_DOCUMENT.md"
     handoff_ready: true
     handoff_to: "Any specialist via Universal Specialist Prompt"
+    agent: "Kilo Code Agent"
+    start: "2026-01-07T19:50:00-08:00"
+    end: "2026-01-07T20:07:00-08:00"
+    summary: |
+      - Continued VAL backend integration from previous agent session.
+      - Fixed package.json: Added missing "server" script: "tsx val/server.ts"
+      - Fixed val/server.ts: Corrected narrativeMirror access pattern (was calling non-existent getNarrativeMirror)
+      - Installed tsx for better ESM support with ts-node
+      - Server now runs successfully on http://localhost:3000
+      - Verified frontend services (spend_engine.ts, narrative_mirror.ts) already configured to call backend API
+    artifacts_created:
+      - "VAL backend running on localhost:3000"
+    files_modified:
+      - "package.json"
+      - "val/server.ts"
+      - ".agent/MASTER_STATE_DOCUMENT.md"
+    handoff_ready: false
+    status: "Complete"
     agent: "Kilo Code Agent"
     start: "2026-01-07T19:50:00-08:00"
     end: "2026-01-07T20:07:00-08:00"

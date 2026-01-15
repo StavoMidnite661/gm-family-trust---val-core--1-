@@ -103,6 +103,8 @@ export interface SpendParams {
     userId: string;
     merchant: MerchantType;
     amount: number;
+    timestamp: number;
+    signature?: string;
     metadata: {
         email?: string;
         phone?: string;

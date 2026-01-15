@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { id as ethersId } from 'ethers';
+import { id as ethersId, Wallet } from 'ethers';
 import {
     MerchantType,
     NarrativeEntry,
@@ -19,7 +19,7 @@ import {
     Activity,
     RefreshCw,
     Coins,
-    Wallet,
+    Wallet as WalletIcon,
     ArrowRightLeft,
     PieChart,
     ChevronRight,
@@ -46,6 +46,9 @@ import {
 } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:3001/api';
+
+// MOCK ADMIN KEY (For Demo Terminal Authority)
+const MOCK_ADMIN_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // Common dev test key
 
 const App: React.FC = () => {
     // UI State
@@ -139,14 +142,35 @@ const App: React.FC = () => {
     const handleSpendCredit = async () => {
         setIsClearing(true);
         try {
+            // 1. Prepare Intent Payload
+            const timestamp = Date.now();
+            const intent = {
+                userId: 'gm_trust_admin',
+                amount: parseFloat(unitAmount),
+                merchant: selectedMerchant,
+                timestamp,
+                metadata: { email: 'admin@gm-trust.family' }
+            };
+
+            // 2. Sign Intent (Client-Side Authority)
+            // In a real app, this prompts Metamask. Here we use the terminal key.
+            const wallet = new Wallet(MOCK_ADMIN_KEY);
+            // We sign the deterministic JSON string of the critical fields
+            const messageToSign = JSON.stringify({
+                userId: intent.userId,
+                amount: intent.amount,
+                merchant: intent.merchant,
+                timestamp: intent.timestamp
+            });
+            const signature = await wallet.signMessage(messageToSign);
+
+            // 3. Submit Signed Intent
             const response = await fetch(`${API_BASE_URL}/spend`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: 'gm_trust_admin',
-                    amount: parseFloat(unitAmount),
-                    merchant: selectedMerchant,
-                    metadata: { email: 'admin@gm-trust.family' }
+                    ...intent,
+                    signature // Attach proof of intent
                 }),
             });
 
@@ -178,7 +202,7 @@ const App: React.FC = () => {
     const navItems = [
         { id: 'dashboard', label: 'TERMINAL', icon: LayoutDashboard },
         { id: 'merchants', label: 'HONORING', icon: ArrowRightLeft },
-        { id: 'ledger', label: 'HISTORY', icon: Activity },
+        { id: 'ledger', label: 'NARRATIVE', icon: Activity },
         { id: 'vault', label: 'AUTH', icon: Database },
         { id: 'adapters', label: 'ADAPTERS', icon: Sliders }
     ];
@@ -390,7 +414,7 @@ const App: React.FC = () => {
                             <span className="text-white font-mono text-[10px] tracking-widest">{stateHash}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <Wallet size={14} className="text-orange-400" />
+                            <WalletIcon size={14} className="text-orange-400" />
                             <span className="text-[16px] font-black text-white mono leading-none tracking-tighter">{formatCurrency(stableBalance)}</span>
                         </div>
                     </div>

@@ -1,0 +1,46 @@
+[NARRATIVE MIRROR] Postgres connection failed, falling back to memory: error: password authentication failed for user "sovr_admin"
+    at D:\SOVR_Development_Holdings_LLC\LLM_knowledge\gm-family-trust---val-core (1)\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async NarrativeMirrorService.initializePostgres (D:\SOVR_Development_Holdings_LLC\LLM_knowledge\gm-family-trust---val-core (1)\val\core\narrative-mirror-service.ts:80:22) {
+  length: 106,
+  severity: 'FATAL',
+  code: '28P01',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '320',
+  routine: 'auth_failed'
+}
+warning(client): 210548611679301920384331960805537274589: on_reply: slow request, request=0 op=14 size=512 register time=917ms
+[TigerBeetle] Account creation returned potential errors: [
+  { index: 0, result: 21 },
+  { index: 1, result: 21 },
+  { index: 2, result: 21 },
+  { index: 3, result: 21 },
+  { index: 4, result: 21 },
+  { index: 5, result: 21 },
+  { index: 6, result: 21 },
+  { index: 7, result: 21 },
+  { index: 8, result: 21 },
+  { index: 9, result: 21 },
+  { index: 10, result: 21 },
+  { index: 11, result: 21 },
+  { index: 12, result: 21 },
+  { index: 13, result: 21 },
+  { index: 14, result: 21 },
+  { index: 15, result: 21 },
+  { index: 16, result: 21 },
+  { index: 17, result: 21 },
+  { index: 18, result: 21 },
+  { index: 19, result: 21 },
+  { index: 20, result: 21 }
+]

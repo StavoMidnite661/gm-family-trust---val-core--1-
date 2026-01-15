@@ -1,0 +1,14 @@
+
+> gm-family-trust---val-core@0.0.0 server
+> tsx val/server.ts
+
+[dotenv@17.2.3] injecting env (0) from .env.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[VAL] Initializing Sovereign Stack...
+[TigerBeetle] Client initialized on cluster 0
+[VAL] System Initialized (Zero-State). Waiting for Attestations.
+
+🚀 VAL Core Authority running on http://localhost:3001
+   - Terminals: Ready
+   - TigerBeetle: Attempting Connection...
+[TigerBeetle] Ensure 21 reference accounts exist.
+[VAL] TigerBeetle reference accounts initialized.

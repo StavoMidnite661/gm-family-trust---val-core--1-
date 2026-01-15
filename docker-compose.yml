@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  # 1. MECHANICAL TRUTH (TigerBeetle)
+  tigerbeetle:
+    image: ghcr.io/tigerbeetle/tigerbeetle:latest
+    container_name: sovr_tigerbeetle
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./tigerbeetle_data:/data
+    command: start --addresses=0.0.0.0:3000 /data/0_0.tigerbeetle
+
+  # 2. NARRATIVE MIRROR (PostgreSQL)
+  postgres:
+    image: postgres:15
+    container_name: sovr_postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: sovr_admin
+      POSTGRES_PASSWORD: sovereignty_is_mechanical
+      POSTGRES_DB: sovr_narrative
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

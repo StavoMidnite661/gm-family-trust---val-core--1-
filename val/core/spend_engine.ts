@@ -102,8 +102,8 @@ export class SpendEngine {
     // 2. Execute Clearing via TigerBeetle [AUTHORITY STEP]
     console.log(`[SpendEngine] Attempting to clear ${requestedAmount} units via TigerBeetle`);
     const transferId = this.eventIdToBigInt(event.id);
-    const debitAccount = NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN; // User's virtual funds
-    const creditAccount = NARRATIVE_ACCOUNTS.INTERNAL_MERCHANT_PAYABLE;   // Merchant settlement account
+    const debitAccount = NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN; // User's virtual entitlements
+    const creditAccount = NARRATIVE_ACCOUNTS.HONORING_ADAPTER_ODFI;   // Merchant realization account
 
     const clearingSuccess = await this.tigerBeetle.createTransfer(
       BigInt(debitAccount),
@@ -178,10 +178,10 @@ export class SpendEngine {
       throw error;
     }
     
-    // 6. Log Settlement (for Narrative Mirror)
+    // 6. Log Realization (for Narrative Mirror)
     await this.eventLogger.log({
       ...event,
-      type: CreditEventType.SPEND_SETTLED,
+      type: CreditEventType.SPEND_FINALIZED,
       metadata: {
         ...event.metadata,
         transactionId: valueResponse.transactionId,
@@ -298,12 +298,12 @@ export class SpendEngine {
   }
 
   /**
-   * Settle an attested intent (Hostile/Async Flow)
+   * Finalize an attested intent (Hostile/Async Flow)
    * This is the entry point for external fulfillment callbacks.
    * ENFORCES IDEMPOTENCY via TigerBeetle.
    */
-  async settle(event: CreditEvent, attestation: Attestation): Promise<SpendResult> {
-    console.log(`[SpendEngine] Settling event ${event.id}`);
+  async finalize(event: CreditEvent, attestation: Attestation): Promise<SpendResult> {
+    console.log(`[SpendEngine] Finalizing event ${event.id}`);
     
     // 1. Verify Attestation (Cryptographic Integrity)
     const isValid = await this.attestationEngine.verify(attestation, event);
@@ -319,7 +319,7 @@ export class SpendEngine {
     // We use the "Honoring Adapter" account logic
     // Debit: User (Vault) -> Credit: Adapter (Settlement)
     // For this implementation, we use reference accounts:
-    const debitAccount = NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN; // User Funds
+    const debitAccount = NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN; // User Entitlements
     const creditAccount = NARRATIVE_ACCOUNTS.HONORING_ADAPTER_ODFI;       // Merchant/Adapter
     
     // We need usage of TigerBeetleService. 
@@ -346,11 +346,11 @@ export class SpendEngine {
     // 4. Record Narrative Observation (Observer)
     await this.eventLogger.log({
       ...event,
-      type: CreditEventType.SPEND_SETTLED,
+      type: CreditEventType.SPEND_FINALIZED,
       attestation,
       metadata: {
         ...event.metadata,
-        settlementMethod: 'async_hostile_replay_protected'
+        realizationMethod: 'async_hostile_replay_protected'
       }
     });
 
@@ -368,7 +368,7 @@ export class SpendEngine {
     // Use Keccak256 for cryptographic uniqueness [CANON LOCK]
     // ethers.utils.id(string) returns a hex string of the Keccak256 hash
     // We mask it to 128 bits for TigerBeetle transfer ID (u128)
-    const hashHex = ethers.utils.id(id);
+    const hashHex = ethers.id(id);
     // Convert hex to BigInt and apply mask for u128
     return BigInt(hashHex) & 0xffffffffffffffffffffffffffffffffn; 
   }
