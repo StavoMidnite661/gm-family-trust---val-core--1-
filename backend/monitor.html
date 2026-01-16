@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VAL Core Monitor</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #fff;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #22d3ee;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .service-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .service-card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #334155;
+    }
+    .service-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .service-name {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse 2s infinite;
+    }
+    .status-dot.offline {
+      background: #ef4444;
+      animation: none;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .service-info {
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
+    .adapter-list {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #334155;
+    }
+    .adapter-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 0.85rem;
+    }
+    .last-updated {
+      text-align: center;
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 VAL Core Monitor</h1>
+
+    <div class="service-grid">
+      <!-- VAL Core Backend -->
+      <div class="service-card">
+        <div class="service-header">
+          <div class="service-name">VAL Core Backend</div>
+          <div class="status-dot" id="status-backend"></div>
+        </div>
+        <div class="service-info">Port: 3001</div>
+        <div class="adapter-list">
+          <div class="adapter-item">
+            <span>Express Server</span>
+            <span id="backend-server">Checking...</span>
+          </div>
+          <div class="adapter-item">
+            <span>API Routes</span>
+            <span id="backend-api">Checking...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PostgreSQL -->
+      <div class="service-card">
+        <div class="service-header">
+          <div class="service-name">PostgreSQL</div>
+          <div class="status-dot" id="status-postgres"></div>
+        </div>
+        <div class="service-info">Port: 5432</div>
+        <div class="adapter-list">
+          <div class="adapter-item">
+            <span>Database</span>
+            <span>val_core</span>
+          </div>
+          <div class="adapter-item">
+            <span>Connection</span>
+            <span id="postgres-conn">Checking...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TigerBeetle -->
+      <div class="service-card">
+        <div class="service-header">
+          <div class="service-name">TigerBeetle</div>
+          <div class="status-dot offline" id="status-tigerbeetle"></div>
+        </div>
+        <div class="service-info">Port: 3000</div>
+        <div class="adapter-list">
+          <div class="adapter-item">
+            <span>Ledger</span>
+            <span>Financial</span>
+          </div>
+          <div class="adapter-item">
+            <span>Status</span>
+            <span>Not Running</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Adapters -->
+    <div class="service-card">
+      <div class="service-header">
+        <div class="service-name">🔌 External Adapters</div>
+        <div class="status-dot" id="status-adapters"></div>
+      </div>
+      <div class="adapter-list">
+        <div class="adapter-item">
+          <span>Tango Cards</span>
+          <span>Available</span>
+        </div>
+        <div class="adapter-item">
+          <span>Arcus Bill-Pay</span>
+          <span>Available</span>
+        </div>
+        <div class="adapter-item">
+          <span>Moov Push-to-Card</span>
+          <span>Available</span>
+        </div>
+        <div class="adapter-item">
+          <span>Square Payments</span>
+          <span>Available</span>
+        </div>
+        <div class="adapter-item">
+          <span>Instacart</span>
+          <span>Available</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="last-updated">
+      Last updated: <span id="timestamp"></span>
+    </div>
+  </div>
+
+  <script>
+    function checkBackendHealth() {
+      fetch('http://localhost:3001/health')
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('status-backend').classList.remove('offline');
+          document.getElementById('backend-server').textContent = 'Running';
+          document.getElementById('backend-api').textContent = 'Active';
+        })
+        .catch(err => {
+          document.getElementById('status-backend').classList.add('offline');
+          document.getElementById('backend-server').textContent = 'Offline';
+          document.getElementById('backend-api').textContent = 'Offline';
+        });
+    }
+
+    function updateTimestamp() {
+      document.getElementById('timestamp').textContent = new Date().toLocaleString();
+    }
+
+    function updateAll() {
+      checkBackendHealth();
+      updateTimestamp();
+    }
+
+    // Check every 10 seconds
+    updateAll();
+    setInterval(updateAll, 10000);
+  </script>
+</body>
+</html>

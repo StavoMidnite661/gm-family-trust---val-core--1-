@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: val-postgres
+    environment:
+      POSTGRES_DB: val_core
+      POSTGRES_USER: val_user
+      POSTGRES_PASSWORD: val_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - val-network
+
+  # Note: TigerBeetle needs to be downloaded and run separately
+  # See TIGERBEETLE_LEDGER_SCHEMA.md for setup instructions
+
+networks:
+  val-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
