@@ -1,0 +1,3 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/StavoMidnite661/gm-family-trust---val-core--1-.git
