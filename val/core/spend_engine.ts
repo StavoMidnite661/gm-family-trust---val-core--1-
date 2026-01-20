@@ -18,7 +18,7 @@ import {
   getNarrativeMirror, 
   NarrativeMirrorService 
 } from './narrative-mirror-service';
-import { getTigerBeetle, TigerBeetleService } from '../clearing/tigerbeetle/client';
+import { getTigerBeetle, TigerBeetleService, LEDGER_IDS, TRANSFER_CODES } from '../clearing/tigerbeetle/client';
 import { NARRATIVE_ACCOUNTS } from '../shared/narrative-mirror-bridge';
 
 export class InsufficientCreditError extends Error {

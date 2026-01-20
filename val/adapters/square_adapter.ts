@@ -10,10 +10,14 @@ export class SquareAdapter implements IMerchantValueAdapter {
   
   private apiKey: string;
   private locationId: string;
+  private baseUrl: string;
   
-  constructor(apiKey: string, locationId: string) {
+  constructor(apiKey: string, locationId: string, sandbox: boolean = true) {
     this.apiKey = apiKey;
     this.locationId = locationId;
+    this.baseUrl = sandbox 
+      ? 'https://connect.squareupsandbox.com/v2'
+      : 'https://connect.squareup.com/v2';
   }
   
   /**
@@ -32,23 +36,69 @@ export class SquareAdapter implements IMerchantValueAdapter {
         );
       }
       
-      // TODO: Call actual Square API
-      // For now, return mock response
-      const mockCode = `SQ-${Math.random().toString(36).substr(2, 12).toUpperCase()}`;
+      // Call Square API to create gift card
+      const createResponse = await fetch(`${this.baseUrl}/gift-cards`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Square-Version': '2024-01-18'
+        },
+        body: JSON.stringify({
+          idempotency_key: `giftcard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          gift_card: {
+            type: 'DIGITAL',
+            location_id: this.locationId
+          }
+        })
+      });
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json();
+        throw new Error(errorData.errors?.[0]?.detail || `Square API error: ${createResponse.status}`);
+      }
+
+      const createData = await createResponse.json();
+      const giftCardId = createData.gift_card?.id;
+
+      // Add balance to the gift card
+      const balanceResponse = await fetch(`${this.baseUrl}/gift-cards/${giftCardId}/balances`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Square-Version': '2024-01-18'
+        },
+        body: JSON.stringify({
+          idempotency_key: `balance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          balance_money: {
+            amount: Math.round(request.amount * 100), // Square uses cents
+            currency: 'USD'
+          }
+        })
+      });
+
+      if (!balanceResponse.ok) {
+        const errorData = await balanceResponse.json();
+        throw new Error(errorData.errors?.[0]?.detail || `Square API error: ${balanceResponse.status}`);
+      }
+
+      const balanceData = await balanceResponse.json();
       
       return {
         success: true,
-        transactionId: `sq_txn_${Date.now()}`,
+        transactionId: createData.gift_card?.gan,
         value: {
           type: 'gift_card',
-          code: mockCode,
+          code: createData.gift_card?.gan,
           balance: request.amount,
-          url: `https://squareup.com/gift/${mockCode}`,
+          url: `https://squareup.com/gift/${createData.gift_card?.gan}`,
           redemptionInstructions: 'Present this code at any Square merchant location'
         },
         timestamp: new Date()
       };
     } catch (error) {
+      console.error('[SquareAdapter] Error:', error);
       return {
         success: false,
         transactionId: '',
@@ -67,12 +117,34 @@ export class SquareAdapter implements IMerchantValueAdapter {
    * Check gift card status
    */
   async checkStatus(transactionId: string): Promise<TransactionStatus> {
-    // TODO: Implement actual status check
-    return {
-      transactionId,
-      status: 'completed',
-      updatedAt: new Date()
-    };
+    try {
+      const response = await fetch(`${this.baseUrl}/gift-cards?gan=${transactionId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Square-Version': '2024-01-18'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.errors?.[0]?.detail || `Square API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      return {
+        transactionId,
+        status: 'completed', // Square gift cards are active immediately
+        updatedAt: new Date()
+      };
+    } catch (error) {
+      console.error('[SquareAdapter] Status check error:', error);
+      return {
+        transactionId,
+        status: 'failed',
+        updatedAt: new Date()
+      };
+    }
   }
   
   /**

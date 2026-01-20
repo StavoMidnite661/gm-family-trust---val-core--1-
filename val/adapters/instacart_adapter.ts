@@ -23,7 +23,7 @@ import {
 } from '../core/narrative-mirror-service';
 import { AnchorType } from '../shared/narrative-mirror-bridge';
 
-// Mock Tango Client for V1
+// Tango API Types
 interface TangoOrderResult {
   referenceOrderID: string;
   reward: {
@@ -41,13 +41,26 @@ export class InstacartAdapter implements IMerchantValueAdapter {
   
   private anchorContractAddress: string;
   private narrativeMirror: NarrativeMirrorService;
+  private tangoPlatformName: string;
+  private tangoPlatformKey: string;
+  private tangoBaseUrl: string;
   
-  // Specific UTID for Instacart (Mock for now)
-  private readonly INSTACART_UTID = 'U123456'; 
+  // Specific UTID for Instacart (From Tango Card catalog)
+  private readonly INSTACART_UTID = process.env.INSTACART_UTID || 'U123456'; 
   
-  constructor(anchorContractAddress: string = '0xANCHOR_CONTRACT_ADDRESS_PLACEHOLDER') {
+  constructor(
+    anchorContractAddress: string = '0xANCHOR_CONTRACT_ADDRESS_PLACEHOLDER',
+    tangoPlatformName?: string,
+    tangoPlatformKey?: string,
+    sandbox: boolean = true
+  ) {
     this.anchorContractAddress = anchorContractAddress;
     this.narrativeMirror = getNarrativeMirror();
+    this.tangoPlatformName = tangoPlatformName || process.env.TANGO_PLATFORM_NAME || 'mock_platform';
+    this.tangoPlatformKey = tangoPlatformKey || process.env.TANGO_PLATFORM_KEY || 'mock_key';
+    this.tangoBaseUrl = sandbox 
+      ? 'https://integration-api.tangocard.com/raas/v2'
+      : 'https://api.tangocard.com/raas/v2';
   }
   
   /**
@@ -112,10 +125,6 @@ export class InstacartAdapter implements IMerchantValueAdapter {
     } catch (error) {
       console.error('[InstacartAdapter] Error:', error);
       
-      // If authorization succeeded but fulfillment failed, we should arguably "Expire" the authorization
-      // or mark it as failed in Narrative Mirror to reverse liability.
-      // For now, we simulate failure.
-      
       return {
         success: false,
         transactionId: eventId,
@@ -130,24 +139,51 @@ export class InstacartAdapter implements IMerchantValueAdapter {
   }
   
   /**
-   * Simulate Tango Card API call
+   * Call Tango Card API to issue Instacart gift card
    */
   private async callTangoApi(amount: number, userId: string, refId: string): Promise<{ success: boolean, code?: string, orderId?: string, error?: string }> {
-    // In production, fetch('https://api.tangocard.com/...')
-    console.log(`[InstacartAdapter] Calling Tango API for $${amount}...`);
-    
-    // Simulate latency
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Simulate success
-    const mockCode = `IC-${Math.random().toString(36).substr(2, 10).toUpperCase()}`;
-    const mockOrderId = `ORD-${Date.now()}`;
-    
-    return {
-      success: true,
-      code: mockCode,
-      orderId: mockOrderId
-    };
+    try {
+      console.log(`[InstacartAdapter] Calling Tango API for $${amount}...`);
+
+      const response = await fetch(`${this.tangoBaseUrl}/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${Buffer.from(`${this.tangoPlatformName}:${this.tangoPlatformKey}`).toString('base64')}`
+        },
+        body: JSON.stringify({
+          accountIdentifier: userId,
+          amount: amount,
+          utid: this.INSTACART_UTID,
+          recipient: {
+            email: 'user@example.com', // Should come from request metadata
+            firstName: 'User',
+            lastName: 'Test'
+          },
+          notes: `Instacart grocery credit for ${userId}`,
+          referenceOrderID: refId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Tango API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      return {
+        success: true,
+        code: data.reward?.credentials?.PIN || 'N/A',
+        orderId: data.referenceOrderID
+      };
+    } catch (error) {
+      console.error('[InstacartAdapter] Tango API error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
   
   private generateProofHash(orderId: string): string {
@@ -174,6 +210,6 @@ export class InstacartAdapter implements IMerchantValueAdapter {
   }
   
   async validateConfig(): Promise<boolean> {
-    return true;
+    return !!(this.tangoPlatformName && this.tangoPlatformKey);
   }
 }

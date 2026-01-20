@@ -8,11 +8,55 @@
  */
 
 import { createClient, Transfer, Account, Client } from 'tigerbeetle-node';
-import { NARRATIVE_ACCOUNTS as ORACLE_ACCOUNTS, AccountType } from '../../shared/narrative-mirror-bridge';
+import { NARRATIVE_ACCOUNTS as ORACLE_ACCOUNTS } from '../../shared/narrative-mirror-bridge';
 
 // Configuration
-const TB_CLUSTER_ID = 0n;
+const TB_CLUSTER_ID = BigInt(process.env.TB_CLUSTER_ID || '0');
 const TB_REPLICA_ADDRESSES = [process.env.TB_ADDRESS || '3000'];
+
+// Ledger IDs (from TigerBeetle Ledger Schema)
+export const LEDGER_IDS = {
+  USD: 1,
+  EUR: 2,
+  GBP: 3,
+  ETH: 100,
+  USDC: 101,
+  USDT: 102,
+  BTC: 103,
+  SOVR: 999,
+  sFIAT: 998,
+  GROCERY_OBLIGATION: 1001,
+  UTILITY_OBLIGATION: 1002,
+  FUEL_OBLIGATION: 1003,
+} as const;
+
+// Account Codes (from TigerBeetle Ledger Schema)
+export const ACCOUNT_CODES = {
+  USER: 1,
+  MERCHANT: 2,
+  TREASURY: 3,
+  ESCROW: 4,
+  FEE_POOL: 5,
+  ANCHOR: 6,
+  SYSTEM_BUFFER: 7,
+} as const;
+
+// Transfer Codes (from TigerBeetle Ledger Schema)
+export const TRANSFER_CODES = {
+  DEPOSIT: 1,
+  WITHDRAWAL: 2,
+  PAYMENT: 3,
+  REFUND: 4,
+  FEE: 5,
+  ANCHOR_AUTHORIZATION: 10,
+  ANCHOR_FULFILLMENT: 11,
+  ANCHOR_EXPIRY: 12,
+  ESCROW_LOCK: 20,
+  ESCROW_RELEASE: 21,
+  ESCROW_VOID: 22,
+  SETTLEMENT: 30,
+  SETTLEMENT_REVERSAL: 31,
+} as const;
 
 // Standard Flags
 const TRANSFER_FLAGS = {
@@ -20,7 +64,7 @@ const TRANSFER_FLAGS = {
   LINKED: 1,
   PENDING: 2,
   POST_PENDING_TRANSFER: 4,
-  void_PENDING_TRANSFER: 8,
+  VOID_PENDING_TRANSFER: 8,
 };
 
 export class TigerBeetleService {
@@ -37,8 +81,6 @@ export class TigerBeetleService {
       console.log(`[TigerBeetle] Client initialized on cluster ${TB_CLUSTER_ID}`);
     } catch (e) {
       console.error('[TigerBeetle] Failed to initialize client:', e);
-      // We don't throw here so the app can start without critical TB failure,
-      // but methods will fail if called.
       this.isConnected = false;
     }
   }
@@ -51,7 +93,6 @@ export class TigerBeetleService {
     if (!this.isConnected) return;
 
     const accountsToCreate: Account[] = [];
-    const now = BigInt(Math.floor(Date.now() / 1000));
 
     // Helper to map Oracle ID format to TB Account
     const mapAccount = (id: number, ledger: number, code: number) => ({
@@ -64,40 +105,43 @@ export class TigerBeetleService {
       user_data_64: 0n,
       user_data_32: 0,
       reserved: 0,
-      ledger: nr(ledger),
-      code: nr(code),
+      ledger: ledger,
+      code: code,
       flags: 0,
       timestamp: 0n, // Auto-set by TB
     });
 
-    // We use Ledger=1 for USD, Code=1 for Reference Accounts
-    // Iterate through ORACLE_ACCOUNTS
-    for (const [key, value] of Object.entries(ORACLE_ACCOUNTS)) {
-      accountsToCreate.push({
-        id: BigInt(value),
-        debits_pending: 0n,
-        debits_posted: 0n,
-        credits_pending: 0n,
-        credits_posted: 0n,
-        user_data_128: 0n,
-        user_data_64: 0n,
-        user_data_32: 0,
-        reserved: 0,
-        ledger: 1, // 1 = USD Ledger
-        code: 1,   // 1 = System Account
-        flags: 0,
-        timestamp: 0n,
-      });
-    }
+    // Create reference accounts based on SOVR specifications
+    accountsToCreate.push(
+      // Treasury (Root minting source)
+      mapAccount(ORACLE_ACCOUNTS.MINT, LEDGER_IDS.SOVR, ACCOUNT_CODES.TREASURY),
+      
+      // Stablecoin account (user spending power)
+      mapAccount(ORACLE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN, LEDGER_IDS.SOVR, ACCOUNT_CODES.USER),
+      
+      // ODFI account (merchant realization)
+      mapAccount(ORACLE_ACCOUNTS.HONORING_ADAPTER_ODFI, LEDGER_IDS.USD, ACCOUNT_CODES.MERCHANT),
+      
+      // System buffer (temporary hold during authorization)
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_TOKEN_REALIZATION, LEDGER_IDS.SOVR, ACCOUNT_CODES.SYSTEM_BUFFER),
+      
+      // Anchor obligation accounts
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_GROCERY_OBLIGATION, LEDGER_IDS.GROCERY_OBLIGATION, ACCOUNT_CODES.ANCHOR),
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_UTILITY_OBLIGATION, LEDGER_IDS.UTILITY_OBLIGATION, ACCOUNT_CODES.ANCHOR),
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_FUEL_OBLIGATION, LEDGER_IDS.FUEL_OBLIGATION, ACCOUNT_CODES.ANCHOR),
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_MOBILE_OBLIGATION, LEDGER_IDS.sFIAT, ACCOUNT_CODES.ANCHOR),
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_HOUSING_OBLIGATION, LEDGER_IDS.sFIAT, ACCOUNT_CODES.ANCHOR),
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_MEDICAL_OBLIGATION, LEDGER_IDS.sFIAT, ACCOUNT_CODES.ANCHOR),
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_CASH_OUT_OBLIGATION, LEDGER_IDS.USD, ACCOUNT_CODES.ANCHOR),
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_PAYROLL_OBLIGATION, LEDGER_IDS.USD, ACCOUNT_CODES.ANCHOR),
+      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_REMITTANCE_OBLIGATION, LEDGER_IDS.USD, ACCOUNT_CODES.ANCHOR)
+    );
 
     try {
       const errors = await this.client.createAccounts(accountsToCreate);
       if (errors.length > 0) {
         // Filter out "exists" errors, as that's expected on restart
-        const realErrors = errors.filter(e => e.result !== 1); // 1 = exists (roughly, check enum in real impl)
-        // Actually TB error enums are strictly typed. 
-        // For now, simple logging. "exists" is often index 1 in many systems but TB uses a specific enum.
-        // We'll log all errors for visible debugging.
+        const realErrors = errors.filter(e => e.result !== 1); // 1 = exists (roughly)
         if (realErrors.length > 0) {
            console.warn('[TigerBeetle] Account creation returned potential errors:', errors);
         }
@@ -134,7 +178,8 @@ export class TigerBeetleService {
     debitAccount: bigint,
     creditAccount: bigint,
     amount: bigint,
-    ledger: number = 1,
+    ledger: number = LEDGER_IDS.SOVR,
+    code: number = TRANSFER_CODES.PAYMENT,
     id?: bigint
   ): Promise<boolean> {
     if (!this.isConnected) return false;
@@ -152,7 +197,7 @@ export class TigerBeetleService {
       user_data_32: 0,
       timeout: 0,
       ledger: ledger,
-      code: 1,
+      code: code,
       flags: 0,
       timestamp: 0n,
     };
@@ -162,8 +207,6 @@ export class TigerBeetleService {
       if (errors.length > 0) {
         // Idempotency Check:
         // Error 46 = exists (transfer with this ID already exists)
-        // In a perfect system we'd verify the existing transfer matches params.
-        // For now, we accept "exists" as "already processed" -> success.
         const realErrors = errors.filter(e => e.result !== 46);
         
         if (realErrors.length > 0) {
@@ -184,23 +227,22 @@ export class TigerBeetleService {
   /**
    * Get account balance
    */
-  async getAccountBalance(accountId: bigint): Promise<bigint> {
-    if (!this.isConnected) return 0n;
+  async getAccountBalance(accountId: bigint): Promise<{ available: bigint; pending: bigint }> {
+    if (!this.isConnected) return { available: 0n, pending: 0n };
 
     try {
       const accounts = await this.client.lookupAccounts([accountId]);
-      if (accounts.length === 0) return 0n;
+      if (accounts.length === 0) return { available: 0n, pending: 0n };
       
       const acc = accounts[0];
-      // Balance = Credits - Debits (for Equity/start) or Debits - Credits?
-      // TB doesn't enforce "normal balance". It just tracks debits and credits.
-      // Net = Credits - Debits (Liability/Equity style)
-      // Net = Debits - Credits (Asset style)
-      // We will return Credits Posted - Debits Posted for now as general net value
-      return acc.credits_posted - acc.debits_posted;
+      
+      return {
+        available: acc.credits_posted - acc.debits_posted,
+        pending: acc.credits_pending - acc.debits_pending
+      };
     } catch (e) {
       console.error('[TigerBeetle] Lookup exception:', e);
-      return 0n;
+      return { available: 0n, pending: 0n };
     }
   }
 }

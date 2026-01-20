@@ -35,30 +35,50 @@ export class TangoAdapter implements IMerchantValueAdapter {
           'tango'
         );
       }
-      
-      // TODO: Call actual Tango Card API
-      // POST /orders with:
-      // - accountIdentifier
-      // - amount
-      // - utid (catalog item)
-      // - recipient email
-      
-      // For now, return mock response
-      const mockCode = `TANGO-${Math.random().toString(36).substr(2, 16).toUpperCase()}`;
+
+      // Call actual Tango Card API
+      const response = await fetch(`${this.baseUrl}/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${Buffer.from(`${this.platformName}:${this.platformKey}`).toString('base64')}`
+        },
+        body: JSON.stringify({
+          accountIdentifier: request.userId,
+          amount: request.amount,
+          utid: 'U123456', // Default UTID - should be configured per merchant
+          recipient: {
+            email: request.metadata.email || `${request.userId}@example.com`,
+            firstName: 'User',
+            lastName: 'Test'
+          },
+          notes: `Issued via SOVR Credit Terminal - ${request.metadata.merchant || 'Generic'}`
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Tango API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Extract gift card details from Tango response
+      const giftCard = data.reward;
       
       return {
         success: true,
-        transactionId: `tango_txn_${Date.now()}`,
+        transactionId: data.referenceOrderID,
         value: {
           type: 'gift_card',
-          code: mockCode,
+          code: giftCard.credentials?.PIN || 'N/A',
           balance: request.amount,
-          url: `https://www.tangocard.com/redeem/${mockCode}`,
+          url: giftCard.credentials?.REDEMPTION_URL || `https://www.tangocard.com/redeem/${data.referenceOrderID}`,
           redemptionInstructions: 'Click the link to redeem your gift card'
         },
         timestamp: new Date()
       };
     } catch (error) {
+      console.error('[TangoAdapter] Error:', error);
       return {
         success: false,
         transactionId: '',
@@ -77,12 +97,32 @@ export class TangoAdapter implements IMerchantValueAdapter {
    * Check order status
    */
   async checkStatus(transactionId: string): Promise<TransactionStatus> {
-    // TODO: GET /orders/{referenceOrderID}
-    return {
-      transactionId,
-      status: 'completed',
-      updatedAt: new Date()
-    };
+    try {
+      const response = await fetch(`${this.baseUrl}/orders/${transactionId}`, {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`${this.platformName}:${this.platformKey}`).toString('base64')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Tango API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      return {
+        transactionId,
+        status: data.status || 'completed',
+        updatedAt: new Date()
+      };
+    } catch (error) {
+      console.error('[TangoAdapter] Status check error:', error);
+      return {
+        transactionId,
+        status: 'failed',
+        updatedAt: new Date()
+      };
+    }
   }
   
   /**

@@ -41,14 +41,30 @@ const valSystem = new VALSystem(
     ATTESTOR_PRIVATE_KEY,
     provider,
     {
-        square: { 
-            apiKey: process.env.SQUARE_API_KEY || 'mock_key', 
-            locationId: process.env.SQUARE_LOCATION_ID || 'mock_loc' 
+        square: {
+            apiKey: process.env.SQUARE_API_KEY || 'mock_key',
+            locationId: process.env.SQUARE_LOCATION_ID || 'mock_loc'
         },
         tango: {
             platformName: process.env.TANGO_PLATFORM_NAME || 'mock_platform',
             platformKey: process.env.TANGO_PLATFORM_KEY || 'mock_key',
-            sandbox: true
+            sandbox: process.env.TANGO_SANDBOX === 'false' ? false : true
+        },
+        instacart: {
+            platformName: process.env.TANGO_PLATFORM_NAME || 'mock_platform',
+            platformKey: process.env.TANGO_PLATFORM_KEY || 'mock_key',
+            utid: process.env.INSTACART_UTID || 'U123456',
+            sandbox: process.env.TANGO_SANDBOX === 'false' ? false : true
+        },
+        arcus: {
+            apiKey: process.env.ARCUS_API_KEY || 'mock_key',
+            apiSecret: process.env.ARCUS_API_SECRET || 'mock_secret',
+            sandbox: process.env.ARCUS_SANDBOX === 'false' ? false : true
+        },
+        moov: {
+            apiKey: process.env.MOOV_API_KEY || 'mock_key',
+            apiSecret: process.env.MOOV_API_SECRET || 'mock_secret',
+            sandbox: process.env.MOOV_SANDBOX === 'false' ? false : true
         }
     }
 );
@@ -237,6 +253,25 @@ app.get('/api/balance/:userId', async (req, res) => {
         res.json(balance);
     } catch (error: any) {
         console.error('Error fetching balance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/tigerbeetle/balance/:accountId
+ * Get TigerBeetle account balance (for debugging)
+ */
+app.get('/api/tigerbeetle/balance/:accountId', async (req, res) => {
+    try {
+        const accountId = BigInt(req.params.accountId);
+        const balance = await tigerBeetle.getAccountBalance(accountId);
+        res.json({
+            accountId: req.params.accountId,
+            available: balance.available.toString(),
+            pending: balance.pending.toString()
+        });
+    } catch (error: any) {
+        console.error('Error fetching TigerBeetle balance:', error);
         res.status(500).json({ error: error.message });
     }
 });

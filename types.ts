@@ -29,9 +29,9 @@ export enum CreditEventType {
     AUDIT_LOG_CREATED = 'AUDIT_LOG_CREATED'
 }
 
-export type MerchantType = 'square' | 'tango' | 'instacart' | 'amazon' | 'walmart' | 'stripe' | 'coinbase' | 'visa';
+export type MerchantType = 'square' | 'tango' | 'instacart' | 'arcus' | 'moov' | 'amazon' | 'walmart' | 'stripe' | 'coinbase' | 'visa';
 
-export type AnchorType = 'GROCERY' | 'UTILITY' | 'FUEL' | 'MOBILE' | 'HOUSING' | 'MEDICAL' | 'GENERAL_GOODS';
+export type AnchorType = 'GROCERY' | 'UTILITY' | 'FUEL' | 'MOBILE' | 'HOUSING' | 'MEDICAL' | 'GENERAL_GOODS' | 'CASH_OUT' | 'PAYROLL' | 'REMITTANCE';
 
 export interface AttestationProof {
     merkleRoot: string;
@@ -172,6 +172,9 @@ export const NARRATIVE_ACCOUNTS = {
     OBSERVED_ANCHOR_MOBILE_OBLIGATION: 9005,
     OBSERVED_ANCHOR_HOUSING_OBLIGATION: 9006,
     OBSERVED_ANCHOR_MEDICAL_OBLIGATION: 9007,
+    OBSERVED_ANCHOR_CASH_OUT_OBLIGATION: 9008,
+    OBSERVED_ANCHOR_PAYROLL_OBLIGATION: 9009,
+    OBSERVED_ANCHOR_REMITTANCE_OBLIGATION: 9010,
 };
 
 export interface AssetAllocation {
