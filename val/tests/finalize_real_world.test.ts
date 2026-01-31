@@ -27,7 +27,7 @@ describe('Canon Validation: SpendEngine.finalize() [REAL WORLD]', async () => {
         
         // 1. Initialize Engines
         const provider = new ethers.JsonRpcProvider(RPC_URL);
-        attestationEngine = new AttestationEngine(TEST_ADMIN_KEY, provider);
+         attestationEngine = new AttestationEngine(TEST_ADMIN_KEY); // Provider removed
         eventLogger = new EventLogger();
         spendEngine = new SpendEngine(attestationEngine, eventLogger);
         
@@ -39,6 +39,26 @@ describe('Canon Validation: SpendEngine.finalize() [REAL WORLD]', async () => {
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for connections
         
         console.log('[TEST] Connected to TigerBeetle and Narrative Mirror.');
+
+        // 3. Fund Account (Mechanical Truth Pre-condition)
+        // Value originates from the TREASURY (Code 3), which is the source of all value in the system.
+        const TREASURY = BigInt(NARRATIVE_ACCOUNTS.TREASURY_MINT);
+        const STABLECOIN = BigInt(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN);
+        
+        const fundingAmount = 1000_000000n; // $1000.00
+        console.log(`[TEST] Funding User Vault with ${fundingAmount} units from Treasury...`);
+        const fundResult = await tigerBeetle.createTransfer(
+            TREASURY, // Source (Treasury)
+            STABLECOIN, // Dest (User Vault)
+            fundingAmount,
+            999, // Ledger (SOVR)
+            1 // Code (DEPOSIT)
+        );
+        
+        if (!fundResult.success && fundResult.error !== 0) {
+             throw new Error(`Failed to fund account: ${fundResult.error}`);
+        }
+        console.log('[TEST] Funding complete.');
     });
 
     after(async () => {

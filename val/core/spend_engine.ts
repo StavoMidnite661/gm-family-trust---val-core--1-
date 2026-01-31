@@ -105,15 +105,16 @@ export class SpendEngine {
     const debitAccount = NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN; // User's virtual entitlements
     const creditAccount = NARRATIVE_ACCOUNTS.HONORING_ADAPTER_ODFI;   // Merchant realization account
 
-    const clearingSuccess = await this.tigerBeetle.createTransfer(
+    const clearingResult = await this.tigerBeetle.createTransfer(
       BigInt(debitAccount),
       BigInt(creditAccount),
       requestedAmount,
-      1,
-      transferId // Idempotency Key
+      LEDGER_IDS.SOVR,      // ledger
+      3,                    // code (PAYMENT = 3)
+      transferId            // id (Idempotency Key)
     );
 
-    if (!clearingSuccess) {
+    if (!clearingResult.success) {
       // This is a critical failure. It means the ledger rejected the transaction.
       // This is the SOLE authority on whether the spend can proceed.
       // Rejection is likely due to insufficient funds or a replayed event.
@@ -122,7 +123,7 @@ export class SpendEngine {
         type: CreditEventType.SPEND_REJECTED_BY_LEDGER,
         attestation,
       });
-      throw new InsufficientCreditError('Clearing rejected by ledger; likely insufficient funds.');
+      throw new InsufficientCreditError(`Clearing rejected by ledger (Code: ${clearingResult.error}); likely insufficient funds.`);
     }
     console.log(`[SpendEngine] CLEARING FINALIZED. Event ${event.id} is now mechanically true.`);
 
@@ -222,15 +223,13 @@ export class SpendEngine {
     // In a full implementation, we'd track per-user balances in a separate table
     const vaultBalance = await this.narrativeMirror.getObservedAccountBalance(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN);
     
-    // For now, mock per-user balance as a portion of vault
-    // Max $1000 per user in micro-units
-    const MAX_USER_BALANCE = 1000n * 1_000_000n;
-    
+    // For now, in Zero-State, the user has access to the full vault balance
+    // In production, this would be segmented by user ledger
     const userBalance: CreditBalance = {
       userId,
-      available: vaultBalance < MAX_USER_BALANCE ? vaultBalance : MAX_USER_BALANCE,
+      available: vaultBalance,
       pending: 0n,
-      total: vaultBalance < MAX_USER_BALANCE ? vaultBalance : MAX_USER_BALANCE,
+      total: vaultBalance,
       lastUpdated: new Date()
     };
     
@@ -329,18 +328,19 @@ export class SpendEngine {
     const tigerBeetleService = await import('../clearing/tigerbeetle/client');
     const tigerBeetle = tigerBeetleService.getTigerBeetle();
     
-    const success = await tigerBeetle.createTransfer(
+    const result = await tigerBeetle.createTransfer(
       BigInt(debitAccount),
       BigInt(creditAccount),
       event.amount,
-      1,
-      transferId // Deterministic ID prevents replay
+      LEDGER_IDS.SOVR,      // ledger (999)
+      3,                    // code (PAYMENT = 3)
+      transferId            // id prevents replay
     );
     
-    if (!success) {
+    if (!result.success) {
       // If TB fails, it's likely a replay or balance issue.
       // We explicitly reject to enforce "One Attestation -> One Clearing".
-      throw new Error('Clearing failed: Transfer rejected (Potential Replay)');
+      throw new Error(`Clearing failed: Transfer rejected (Code: ${result.error})`);
     }
     
     // 4. Record Narrative Observation (Observer)

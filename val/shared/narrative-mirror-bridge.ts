@@ -16,7 +16,9 @@ export enum AccountType {
   Expense = 'Expense',
 }
 
-export type NarrativeStatus = 'OBSERVED' | 'RECORDED' | 'FAILED' | 'IGNORED';
+import { ClearingStatus } from '../../types';
+
+export type NarrativeStatus = 'OBSERVED' | 'RECORDED' | 'FAILED' | 'IGNORED' | ClearingStatus;
 
 export interface NarrativeEntryLine {
   accountId: number;
@@ -44,7 +46,8 @@ export type NarrativeSource =
   | 'ATTESTATION' 
   | 'HONORING_ATTEMPT' 
   | 'HONORING_RESULT' 
-  | 'INTERSYSTEM';
+  | 'INTERSYSTEM'
+  | 'CLAIM_ASSERTION';
 
 export interface RecordNarrativeEntryRequest {
   description: string;
@@ -84,6 +87,7 @@ export interface INarrativeMirror {
   recordAnchorFulfillment(eventId: string, anchorType: AnchorType, units: bigint, proofHash: string): Promise<RecordNarrativeEntryResponse>;
   recordAnchorExpiry(eventId: string, anchorType: AnchorType, units: bigint, user: string): Promise<RecordNarrativeEntryResponse>;
   recordAttestationVerified(orderId: string, amount: bigint, recipient: string, attestor: string, txHash: string): Promise<RecordNarrativeEntryResponse>;
+  getHistory(userId: string, limit?: number): Promise<NarrativeEntry[]>;
   ping(): Promise<boolean>;
   getPendingObligationObservations(): Promise<Record<string, bigint>>;
 }
@@ -94,6 +98,7 @@ export interface INarrativeMirror {
  */
 export const NARRATIVE_ACCOUNTS = {
   // Observed State (Narrative Mirror of TigerBeetle)
+  TREASURY_MINT: 1, // Root Source
   HONORING_ADAPTER_ODFI: 1000,
   HONORING_ADAPTER_STABLECOIN: 1010,
   HONORING_ADAPTER_ACH: 1050,
@@ -216,12 +221,36 @@ export function createAttestationEntry(
     source: 'ATTESTATION',
     status: 'RECORDED',
     lines: [
-      // Memo entry for audit trail
-      { accountId: NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN, type: 'DEBIT', amount: 0n, description: `Attestor: ${attestor}` },
-      { accountId: NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN, type: 'CREDIT', amount: 0n, description: `Tx: ${txHash}` },
+      // Double-entry observation: Realization -> User Vault
+      { accountId: NARRATIVE_ACCOUNTS.OBSERVED_TOKEN_REALIZATION, type: 'DEBIT', amount: amount, description: `Token realization verified` },
+      { accountId: NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN, type: 'CREDIT', amount: amount, description: `User vault credited` },
     ],
     eventId: orderId,
-    txHash: txHash
+    txHash: txHash,
+    userId: recipient
+  };
+}
+
+/**
+ * Records the assertion of a claim (RIGHTS to goods/services).
+ * "I have paid, therefore I claim."
+ */
+export function createClaimAssertionEntry(
+  claimId: string,
+  user: string,
+  description: string,
+  relatedEventId: string
+): RecordNarrativeEntryRequest {
+  return {
+    description: `Claim Asserted: ${description}`,
+    source: 'CLAIM_ASSERTION',
+    status: ClearingStatus.CLAIM,
+    lines: [
+      // Claim logic: Informational record of rights assertion
+      { accountId: NARRATIVE_ACCOUNTS.OBSERVED_TOKEN_REALIZATION, type: 'CREDIT', amount: 0n, description: `Rights Claimed: ${claimId}` }
+    ],
+    eventId: relatedEventId,
+    userId: user
   };
 }
 

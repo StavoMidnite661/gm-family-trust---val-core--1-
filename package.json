@@ -8,10 +8,16 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "tsx val/server.ts",
-    "infra:up": "docker-compose up -d"
+    "infra:up": "docker-compose up -d",
+    "test:integration": "tsx val/tests/attestation_flow.test.ts",
+    "test:real-world": "tsx val/tests/finalize_real_world.test.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@aws-sdk/client-ec2": "^3.979.0",
+    "@aws-sdk/client-ec2-instance-connect": "^3.980.0",
     "@playwright/test": "^1.57.0",
+    "axios": "^1.13.4",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "ethers": "^6.16.0",
@@ -20,7 +26,9 @@
     "pg": "^8.16.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tigerbeetle-node": "^0.16.67"
+    "tigerbeetle-node": "^0.16.67",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -29,8 +37,6 @@
     "@types/pg": "^8.16.0",
     "@vitejs/plugin-react": "^5.0.0",
     "ts-node": "^10.9.2",
-    "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
 }

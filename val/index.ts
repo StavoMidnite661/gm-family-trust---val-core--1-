@@ -7,9 +7,11 @@ import { SpendEngine } from './core/spend_engine';
 import { EventLogger } from './events/logger';
 import { SquareAdapter } from './adapters/square_adapter';
 import { TangoAdapter } from './adapters/tango_adapter';
+import { TilloAdapter } from './adapters/tillo_adapter';
 import { InstacartAdapter } from './adapters/instacart_adapter';
 import { ArcusAdapter } from './adapters/arcus_adapter';
 import { MoovAdapter } from './adapters/moov_adapter';
+import { PizzaAdapter } from './adapters/pizza_adapter';
 import { getTigerBeetle } from './clearing/tigerbeetle/client';
 
 export class VALSystem {
@@ -23,14 +25,16 @@ export class VALSystem {
     config: {
       square?: { apiKey: string; locationId: string };
       tango?: { platformName: string; platformKey: string; sandbox?: boolean };
+      tillo?: { apiKey: string; apiSecret: string; sandbox?: boolean; sector?: string };
       instacart?: { platformName: string; platformKey: string; utid?: string; sandbox?: boolean };
       arcus?: { apiKey: string; apiSecret: string; sandbox?: boolean };
       moov?: { apiKey: string; apiSecret: string; sandbox?: boolean };
     }
   ) {
     // Initialize core components
-    this.attestationEngine = new AttestationEngine(attestorPrivateKey, provider);
+    this.attestationEngine = new AttestationEngine(attestorPrivateKey);  // Provider not used
     this.eventLogger = new EventLogger();
+    // @ts-ignore - Constructor expects 2 arguments as defined in spend_engine.ts
     this.spendEngine = new SpendEngine(this.attestationEngine, this.eventLogger);
     
     // Register merchant adapters
@@ -50,9 +54,19 @@ export class VALSystem {
       );
       this.spendEngine.registerAdapter(tangoAdapter);
     }
+    
+    if (config.tillo) {
+      const tilloAdapter = new TilloAdapter(
+        config.tillo.apiKey,
+        config.tillo.apiSecret,
+        config.tillo.sandbox,
+        config.tillo.sector || process.env.TILLO_SECTOR
+      );
+      this.spendEngine.registerAdapter(tilloAdapter);
+    }
 
     // Register Instacart Adapter (Zero-Float)
-    const instacartConfig = config.instacart || config.tango || {};
+    const instacartConfig: any = config.instacart || config.tango || {};
     const instacartAdapter = new InstacartAdapter(
       '0xANCHOR_CONTRACT_ADDRESS_PLACEHOLDER',
       instacartConfig.platformName,
@@ -80,6 +94,10 @@ export class VALSystem {
       );
       this.spendEngine.registerAdapter(moovAdapter);
     }
+
+    // Register Pizza/Toast Adapter (Doctrine Clearing)
+    const pizzaAdapter = new PizzaAdapter();
+    this.spendEngine.registerAdapter(pizzaAdapter);
   }
 
   /**
@@ -121,6 +139,8 @@ export * from './clearing/tigerbeetle/client.ts';
 export * from './merchant_triggers/adapter_interface';
 export * from './adapters/square_adapter';
 export * from './adapters/tango_adapter';
+export * from './adapters/tillo_adapter';
 export * from './adapters/instacart_adapter';
 export * from './adapters/arcus_adapter';
 export * from './adapters/moov_adapter';
+export * from './adapters/pizza_adapter';

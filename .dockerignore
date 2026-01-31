@@ -1,0 +1,12 @@
+node_modules
+.git
+.env*
+! .env.production
+# Allow dist to be copied from builder stage, but ignore local dist for context efficiency
+dist/
+*.log
+docker-compose*.yml
+setup_vps.sh
+tigerbeetle.exe
+tigerbeetle.zip
+tigerbeetle_data/

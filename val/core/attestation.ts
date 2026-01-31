@@ -51,7 +51,8 @@ export class AttestationEngine {
       type: event.type,
       userId: event.userId,
       amount: event.amount.toString(),
-      timestamp: event.timestamp.toISOString()
+      timestamp: event.timestamp.toISOString(),
+      transactionHash: event.transactionHash || null
     }));
     
     const nonce = hexlify(randomBytes(32));
@@ -72,7 +73,8 @@ export class AttestationEngine {
       amount: event.amount.toString(),
       type: event.type,
       merkleRoot: proof.merkleRoot,
-      timestamp: event.timestamp.toISOString()
+      timestamp: event.timestamp.toISOString(),
+      transactionHash: event.transactionHash || null
     });
   }
 }

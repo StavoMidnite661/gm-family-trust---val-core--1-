@@ -11,8 +11,8 @@ interface LedgerTableProps {
 const LedgerTable: React.FC<LedgerTableProps> = ({ entries, onSelectEntry }) => {
     return (
         <div className="h-full flex flex-col overflow-hidden">
-            <div className="overflow-y-auto custom-scrollbar flex-1">
-                <table className="w-full text-left text-[11px] border-collapse">
+            <div className="overflow-x-auto no-scrollbar -mx-4 px-4 flex-1">
+                <table className="w-full text-left text-[11px] border-collapse min-w-[500px]">
                     <thead className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur-md text-slate-500 uppercase font-black tracking-widest border-b border-white/5">
                         <tr>
                             <th className="px-4 py-3">Status</th>
@@ -40,7 +40,7 @@ const LedgerTable: React.FC<LedgerTableProps> = ({ entries, onSelectEntry }) => 
                                     </span>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <p className="font-bold text-slate-200 group-hover:text-white transition-colors truncate max-w-[200px]">{entry.description}</p>
+                                    <p className="font-bold text-slate-200 group-hover:text-white transition-colors truncate max-w-[150px] md:max-w-none">{entry.description}</p>
                                     <p className="text-[9px] text-slate-500 mono mt-0.5 opacity-60">ID: {entry.id.split('-').pop()}</p>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">

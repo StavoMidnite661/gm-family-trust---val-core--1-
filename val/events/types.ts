@@ -94,4 +94,4 @@ export interface SpendResult {
     attestation: Attestation;
 }
 
-export type MerchantType = 'square' | 'stripe' | 'coinbase' | 'visa' | 'tango' | 'instacart';
+export type MerchantType = 'square' | 'tango' | 'instacart' | 'arcus' | 'moov' | 'amazon' | 'walmart' | 'stripe' | 'coinbase' | 'visa' | 'toast' | 'pizza' | 'tillo';

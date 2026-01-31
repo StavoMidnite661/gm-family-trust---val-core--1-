@@ -69,3 +69,51 @@
 ### Task 4: End-to-End Test
 
 - [x] Frontend "Execute Trust Flow" -> API -> Auth -> TB(Clearing) -> Postgres(Mirror) -> Frontend(Observation).
+
+---
+
+## 🔒 PHASE 4: VAULT SYNC (BLOCKCHAIN BRIDGE)
+
+**Goal:** Connect wallet, burn on-chain assets, and credit ledger.
+
+### Task 5: Wallet Persistence
+
+- [x] Implement localStorage wallet connection persistence.
+- [x] Auto-reconnect on page load.
+
+### Task 6: Automated Burn Flow
+
+- [x] Create burn logic in `AttestationModal.tsx`.
+- [x] Enforce Base Network (Chain ID 8453) before burn.
+- [x] Capture transaction hash and link to attestation.
+
+### Task 7: Transaction History
+
+- [x] Add `/api/history/:userId` endpoint.
+- [x] Create `HistoryModal` component in `App.tsx`.
+- [x] Query Narrative Mirror for 6-month lookback.
+
+---
+
+## 🚀 PHASE 5: PRODUCTION DEPLOYMENT
+
+**Goal:** Deploy ValCore to public internet.
+
+### Task 8: VPS Provisioning
+
+- [x] Provision VPS (Hetzner/DigitalOcean/AWS).
+- [x] Install Docker, Node.js, Nginx.
+- [x] Copy project files.
+
+### Task 9: Domain & SSL
+
+- [x] Point Namecheap domain to VPS IP (A Record).
+- [x] Configure Nginx reverse proxy.
+- [x] Install SSL via Certbot (Let's Encrypt).
+
+### Task 10: Production Launch
+
+- [x] Run `docker-compose up -d` (TigerBeetle + Postgres).
+- [x] Build frontend: `npm run build`.
+- [x] Start backend: `docker compose up -d`.
+- [x] Verify public access via domain.

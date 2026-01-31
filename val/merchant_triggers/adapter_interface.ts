@@ -40,6 +40,10 @@ export interface ValueRequest {
     phone?: string;
     recipientId?: string;
     customData?: Record<string, any>;
+    transferId?: string;
+    // Moov fiat disbursement fields
+    destinationType?: 'card' | 'account';
+    destinationValue?: string;
   };
 }
 
@@ -47,12 +51,19 @@ export interface ValueResponse {
   success: boolean;
   transactionId: string;
   value: {
-    type: 'gift_card' | 'virtual_card' | 'direct_credit' | 'voucher';
+    type: 'gift_card' | 'virtual_card' | 'direct_credit' | 'voucher' | 'food_order' | 'fiat_disbursement';
     code?: string;
     url?: string;
     balance?: number;
     expiresAt?: Date;
     redemptionInstructions?: string;
+    // Food Order specific fields
+    orderId?: string;
+    restaurant?: string;
+    amount?: number;
+    status?: string;
+    // Generic metadata for adapter-specific data
+    metadata?: Record<string, any>;
   };
   error?: {
     code: string;

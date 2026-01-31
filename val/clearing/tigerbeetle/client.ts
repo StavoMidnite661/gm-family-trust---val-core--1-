@@ -114,13 +114,14 @@ export class TigerBeetleService {
     // Create reference accounts based on SOVR specifications
     accountsToCreate.push(
       // Treasury (Root minting source)
-      mapAccount(ORACLE_ACCOUNTS.MINT, LEDGER_IDS.SOVR, ACCOUNT_CODES.TREASURY),
+      mapAccount(ORACLE_ACCOUNTS.TREASURY_MINT, LEDGER_IDS.SOVR, ACCOUNT_CODES.TREASURY),
+
       
       // Stablecoin account (user spending power)
       mapAccount(ORACLE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN, LEDGER_IDS.SOVR, ACCOUNT_CODES.USER),
       
       // ODFI account (merchant realization)
-      mapAccount(ORACLE_ACCOUNTS.HONORING_ADAPTER_ODFI, LEDGER_IDS.USD, ACCOUNT_CODES.MERCHANT),
+      mapAccount(ORACLE_ACCOUNTS.HONORING_ADAPTER_ODFI, LEDGER_IDS.SOVR, ACCOUNT_CODES.MERCHANT),
       
       // System buffer (temporary hold during authorization)
       mapAccount(ORACLE_ACCOUNTS.OBSERVED_TOKEN_REALIZATION, LEDGER_IDS.SOVR, ACCOUNT_CODES.SYSTEM_BUFFER),
@@ -132,9 +133,9 @@ export class TigerBeetleService {
       mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_MOBILE_OBLIGATION, LEDGER_IDS.sFIAT, ACCOUNT_CODES.ANCHOR),
       mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_HOUSING_OBLIGATION, LEDGER_IDS.sFIAT, ACCOUNT_CODES.ANCHOR),
       mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_MEDICAL_OBLIGATION, LEDGER_IDS.sFIAT, ACCOUNT_CODES.ANCHOR),
-      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_CASH_OUT_OBLIGATION, LEDGER_IDS.USD, ACCOUNT_CODES.ANCHOR),
-      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_PAYROLL_OBLIGATION, LEDGER_IDS.USD, ACCOUNT_CODES.ANCHOR),
-      mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_REMITTANCE_OBLIGATION, LEDGER_IDS.USD, ACCOUNT_CODES.ANCHOR)
+      // mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_CASH_OUT_OBLIGATION, LEDGER_IDS.USD, ACCOUNT_CODES.ANCHOR),
+      // mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_PAYROLL_OBLIGATION, LEDGER_IDS.USD, ACCOUNT_CODES.ANCHOR),
+      // mapAccount(ORACLE_ACCOUNTS.OBSERVED_ANCHOR_REMITTANCE_OBLIGATION, LEDGER_IDS.USD, ACCOUNT_CODES.ANCHOR)
     );
 
     try {
@@ -181,8 +182,8 @@ export class TigerBeetleService {
     ledger: number = LEDGER_IDS.SOVR,
     code: number = TRANSFER_CODES.PAYMENT,
     id?: bigint
-  ): Promise<boolean> {
-    if (!this.isConnected) return false;
+  ): Promise<{ success: boolean; error?: number }> {
+    if (!this.isConnected) return { success: false, error: 999 }; // 999 = Client Offline
 
     const transferId = id || (BigInt(Date.now()) * 10000n + BigInt(Math.floor(Math.random() * 10000)));
 
@@ -210,17 +211,18 @@ export class TigerBeetleService {
         const realErrors = errors.filter(e => e.result !== 46);
         
         if (realErrors.length > 0) {
+          const firstError = realErrors[0].result;
           console.error('[TigerBeetle] Transfer failed:', realErrors);
-          return false;
+          return { success: false, error: firstError };
         } else {
           console.warn(`[TigerBeetle] Transfer ${transferId} already exists (Idempotent success)`);
-          return true;
+          return { success: true };
         }
       }
-      return true;
+      return { success: true };
     } catch (e) {
       console.error('[TigerBeetle] Transfer exception:', e);
-      return false;
+      return { success: false, error: 998 }; // 998 = Exception
     }
   }
 

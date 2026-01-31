@@ -1,46 +1,21 @@
-[NARRATIVE MIRROR] Postgres connection failed, falling back to memory: error: password authentication failed for user "sovr_admin"
-    at D:\SOVR_Development_Holdings_LLC\LLM_knowledge\gm-family-trust---val-core (1)\node_modules\pg-pool\index.js:45:11
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async NarrativeMirrorService.initializePostgres (D:\SOVR_Development_Holdings_LLC\LLM_knowledge\gm-family-trust---val-core (1)\val\core\narrative-mirror-service.ts:80:22) {
-  length: 106,
-  severity: 'FATAL',
-  code: '28P01',
-  detail: undefined,
-  hint: undefined,
-  position: undefined,
-  internalPosition: undefined,
-  internalQuery: undefined,
-  where: undefined,
-  schema: undefined,
-  table: undefined,
-  column: undefined,
-  dataType: undefined,
-  constraint: undefined,
-  file: 'auth.c',
-  line: '320',
-  routine: 'auth_failed'
-}
-warning(client): 210548611679301920384331960805537274589: on_reply: slow request, request=0 op=14 size=512 register time=917ms
-[TigerBeetle] Account creation returned potential errors: [
-  { index: 0, result: 21 },
-  { index: 1, result: 21 },
-  { index: 2, result: 21 },
-  { index: 3, result: 21 },
-  { index: 4, result: 21 },
-  { index: 5, result: 21 },
-  { index: 6, result: 21 },
-  { index: 7, result: 21 },
-  { index: 8, result: 21 },
-  { index: 9, result: 21 },
-  { index: 10, result: 21 },
-  { index: 11, result: 21 },
-  { index: 12, result: 21 },
-  { index: 13, result: 21 },
-  { index: 14, result: 21 },
-  { index: 15, result: 21 },
-  { index: 16, result: 21 },
-  { index: 17, result: 21 },
-  { index: 18, result: 21 },
-  { index: 19, result: 21 },
-  { index: 20, result: 21 }
-]
+2026-01-21 05:18:31.567Z info(io): opening "0_0.tigerbeetle"...
+2026-01-21 05:18:31.692Z info(main): release=0.16.68
+2026-01-21 05:18:31.692Z info(main): release_client_min=0.16.4
+2026-01-21 05:18:31.692Z info(main): releases_bundled={ 0.16.64, 0.16.65, 0.16.66, 0.16.67, 0.16.68 }
+2026-01-21 05:18:31.693Z info(main): git_commit=ebc92640850dbd315edd965f8c3f18a750dd79b7
+2026-01-21 05:18:32.442Z info(replica): superblock release=0.16.68
+2026-01-21 05:18:34.475Z info(replica): 0N: transition_to_normal_from_recovering_status: view=1 primary
+2026-01-21 05:18:34.476Z info(main): 0: Allocated 3084MiB during replica init
+2026-01-21 05:18:34.476Z info(main): 0: Grid cache: 1024MiB, LSM-tree manifests: 128MiB
+2026-01-21 05:18:34.476Z info(main): 0: cluster=0: listening on 127.0.0.1:3000
+2026-01-21 05:18:35.144Z warning(main): a cluster id of 0 is reserved for testing and benchmarking, do not use in production
+2026-01-21 05:18:35.151Z info(message_bus): 0: set_and_verify_peer connection from client_likely=234628482309303031686223071572510818401
+2026-01-21 05:18:35.614Z warning(message_bus): 0: on_recv: from=vsr.Peer{ .client_likely = 234628482309303031686223071572510818401 } error.ConnectionResetByPeer
+2026-01-21 05:18:36.606Z info(message_bus): 0: set_and_verify_peer connection from client_likely=95520449421909072669480177081388432151
+2026-01-21 05:18:36.617Z warning(message_bus): 0: on_recv: from=vsr.Peer{ .client_likely = 95520449421909072669480177081388432151 } error.ConnectionResetByPeer
+2026-01-21 05:18:42.678Z info(message_bus): 0: set_and_verify_peer connection from client_likely=79802644186898423082970827613465520792
+2026-01-21 05:18:42.688Z warning(message_bus): 0: on_recv: from=vsr.Peer{ .client_likely = 79802644186898423082970827613465520792 } error.ConnectionResetByPeer
+2026-01-21 05:19:05.544Z info(message_bus): 0: set_and_verify_peer connection from client_likely=60087850803479398516116652487038177423
+2026-01-21 05:19:05.553Z warning(message_bus): 0: on_recv: from=vsr.Peer{ .client_likely = 60087850803479398516116652487038177423 } error.ConnectionResetByPeer
+2026-01-21 05:35:15.862Z info(message_bus): 0: set_and_verify_peer connection from client_likely=7558153865436361318982523115751020973
+2026-01-21 05:35:15.869Z warning(message_bus): 0: on_recv: from=vsr.Peer{ .client_likely = 7558153865436361318982523115751020973 } error.ConnectionResetByPeer

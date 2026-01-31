@@ -19,7 +19,7 @@ import type {
   NarrativeEntry,
   AnchorAuthorization,
   AnchorType,
-  NarrativeLine,
+  NarrativeEntryLine,  // Fixed: was 'NarrativeLine'
 } from '../shared/narrative-mirror-bridge';
 
 import {
@@ -41,18 +41,20 @@ interface NarrativeMirrorConfig {
   postgres?: PoolConfig;
 }
 
-const DEFAULT_CONFIG: NarrativeMirrorConfig = {
-  baseUrl: process.env.NARRATIVE_MIRROR_URL || 'http://localhost:3001',
-  apiKey: process.env.NARRATIVE_MIRROR_API_KEY,
-  timeout: 30000,
-  postgres: process.env.POSTGRES_URL ? { connectionString: process.env.POSTGRES_URL } : {
-    user: process.env.POSTGRES_USER || 'sovr_admin',
-    password: process.env.POSTGRES_PASSWORD || 'sovereignty_is_mechanical',
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: parseInt(process.env.POSTGRES_PORT || '5432'),
-    database: process.env.POSTGRES_DB || 'sovr_narrative',
-  }
-};
+function getDefaultConfig(): NarrativeMirrorConfig {
+  return {
+    baseUrl: process.env.NARRATIVE_MIRROR_URL || 'http://localhost:3001',
+    apiKey: process.env.NARRATIVE_MIRROR_API_KEY,
+    timeout: 30000,
+    postgres: process.env.POSTGRES_URL ? { connectionString: process.env.POSTGRES_URL } : {
+      user: process.env.POSTGRES_USER || 'sovr_admin',
+      password: process.env.POSTGRES_PASSWORD || 'sovereignty_is_mechanical',
+      host: process.env.POSTGRES_HOST || 'localhost',
+      port: parseInt(process.env.POSTGRES_PORT || '5432'),
+      database: process.env.POSTGRES_DB || 'sovr_narrative',
+    }
+  };
+}
 
 // =============================================================================
 // NARRATIVE MIRROR IMPLEMENTATION (OBSERVER ONLY)
@@ -69,7 +71,7 @@ export class NarrativeMirrorService implements INarrativeMirror {
   private observedBalances: Map<number, bigint> = new Map();
 
   constructor(config: Partial<NarrativeMirrorConfig> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = { ...getDefaultConfig(), ...config };
     this.initializeObservedBalances();
     this.initializePostgres();
   }
@@ -89,8 +91,8 @@ export class NarrativeMirrorService implements INarrativeMirror {
 
   private initializeObservedBalances(): void {
     // These are OBSERVED values, not authoritative
-    this.observedBalances.set(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_ODFI, 5000000000n);
-    this.observedBalances.set(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN, 2500000000n);
+    this.observedBalances.set(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_ODFI, 0n);
+    this.observedBalances.set(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN, 0n);
     this.observedBalances.set(NARRATIVE_ACCOUNTS.OBSERVED_ANCHOR_GROCERY_OBLIGATION, 0n);
   }
 
@@ -191,8 +193,19 @@ export class NarrativeMirrorService implements INarrativeMirror {
       // Update observed balances (NOT authoritative)
       for (const line of narrativeEntry.lines) {
         const observed = this.observedBalances.get(line.accountId) || 0n;
+        
+        // [DOCTRINE] Account Normal Balance Logic:
+        // Liabilities (Vaults/Obligations) and Income = Credits - Debits
+        // Assets and Expenses = Debits - Credits
+        // For simplicity in this observer, we treat specific identifiers as liability-normal.
+        const isLiabilityNormal = 
+          line.accountId === NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN ||
+          line.accountId === NARRATIVE_ACCOUNTS.HONORING_ADAPTER_ODFI ||
+          line.accountId >= 1000 && line.accountId < 3000; // General range for liabilities/AP
+          
         const delta = line.type === 'DEBIT' ? line.amount : -line.amount;
-        this.observedBalances.set(line.accountId, observed + delta);
+        // If it's liability normal, flip the delta (Credit increases balance)
+        this.observedBalances.set(line.accountId, observed + (isLiabilityNormal ? -delta : delta));
       }
 
       console.log(`[NARRATIVE MIRROR] Recorded cleared event observation: ${narrativeEntry.id}`);
@@ -318,6 +331,25 @@ export class NarrativeMirrorService implements INarrativeMirror {
   ): Promise<RecordNarrativeEntryResponse> {
     const request = createAttestationEntry(orderId, amount, recipient, attestor, txHash);
     return this.recordNarrativeEntry(request);
+  }
+
+  async getHistory(userId: string, limit: number = 50): Promise<NarrativeEntry[]> {
+    if (this.isPostgresConnected && this.pool) {
+      const res = await this.pool.query(
+        'SELECT raw_data FROM journal_entries WHERE user_id = $1 ORDER BY date DESC LIMIT $2',
+        [userId, limit]
+      );
+      return res.rows.map(row => {
+        const entry = row.raw_data;
+        entry.lines = entry.lines.map((l: any) => ({ ...l, amount: BigInt(l.amount) }));
+        return entry;
+      });
+    }
+    
+    return Array.from(this.narrativeRecords.values())
+      .filter(entry => entry.userId === userId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, limit);
   }
 
   async ping(): Promise<boolean> {

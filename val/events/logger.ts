@@ -22,6 +22,7 @@ const EVENT_TO_SOURCE: Record<CreditEventType, NarrativeSource> = {
   [CreditEventType.VALUE_CREATED]: 'CLEARING_OBSERVATION',
   [CreditEventType.CREDIT_PROOF_ATTESTED]: 'ATTESTATION',
   [CreditEventType.ATTESTATION_VERIFIED]: 'ATTESTATION',
+  [CreditEventType.INTEGRITY_VERIFIED]: 'ATTESTATION',  // Added missing enum
   [CreditEventType.CREDIT_UNLOCKED]: 'CLEARING_OBSERVATION',
   [CreditEventType.MERCHANT_VALUE_REQUESTED]: 'HONORING_ATTEMPT',
   [CreditEventType.MERCHANT_VALUE_ISSUED]: 'HONORING_RESULT',
@@ -34,7 +35,6 @@ const EVENT_TO_SOURCE: Record<CreditEventType, NarrativeSource> = {
   [CreditEventType.HONORING_FAILED]: 'HONORING_RESULT',
   [CreditEventType.USER_REWARD_EARNED]: 'CLEARING_OBSERVATION',
   [CreditEventType.CASHBACK_ISSUED]: 'HONORING_RESULT',
-  [CreditEventType.BALANCE_RECONCILED]: 'INTERSYSTEM',
   [CreditEventType.AUDIT_LOG_CREATED]: 'CLEARING_OBSERVATION',
 };
 
@@ -112,7 +112,7 @@ export class EventLogger {
           userId: event.userId
         };
         
-      case CreditEventType.SPEND_SETTLED:
+      case CreditEventType.SPEND_FINALIZED:  // Changed from non-existent SPEND_SETTLED
         return {
           description: `Settlement Observation for ${event.userId}: ${displayAmount} USD - ${event.metadata?.transactionId}`,
           source,

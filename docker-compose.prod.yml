@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  # 1. MECHANICAL TRUTH (TigerBeetle)
+  tigerbeetle:
+    image: ghcr.io/tigerbeetle/tigerbeetle:latest
+    container_name: sovr_tigerbeetle
+    restart: always
+    ports:
+      - "3000:3000"
+    security_opt:
+      - seccomp=unconfined
+    volumes:
+      - tigerbeetle_data:/data
+    command: start --addresses=0.0.0.0:3000 /data/0_0.tigerbeetle
+
+  # 2. AUTHORITY GATEWAY
+  backend:
+    image: stavomidnite661/val-core-backend:latest
+    container_name: sovr_backend
+    restart: always
+    ports:
+      - "3001:3001"
+    security_opt:
+      - seccomp=unconfined
+    environment:
+      - NODE_ENV=production
+      - TB_ADDRESS=172.18.0.2:3000
+      - DATABASE_URL=postgres://sovr_admin:sovereignty_is_mechanical@postgres:5432/sovr_narrative
+      - POSTGRES_URL=postgres://sovr_admin:sovereignty_is_mechanical@postgres:5432/sovr_narrative
+    volumes:
+      - ./server.ts:/app/val/server.ts
+      - ./client.ts:/app/val/clearing/tigerbeetle/client.ts
+    depends_on:
+      - tigerbeetle
+      - postgres
+
+  # 3. NARRATIVE MIRROR (PostgreSQL)
+  postgres:
+    image: postgres:15
+    container_name: sovr_postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: sovr_admin
+      POSTGRES_PASSWORD: sovereignty_is_mechanical
+      POSTGRES_DB: sovr_narrative
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  tigerbeetle_data:
+  postgres_data:

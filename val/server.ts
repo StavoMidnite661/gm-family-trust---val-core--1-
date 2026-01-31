@@ -1,16 +1,23 @@
 
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local', override: true });
+
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { VALSystem } from './index';
 import { ethers } from 'ethers';
-import { CreditEventType } from './events/types';
-import dotenv from 'dotenv';
+import { CreditEvent, CreditEventType } from './events/types';
 import { NARRATIVE_ACCOUNTS } from './shared/narrative-mirror-bridge';
 
-dotenv.config({ path: '.env.local' });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// process.env.POSTGRES_URL is used from docker-compose or .env.local
 
 const app = express();
-const PORT = process.env.PORT || 3001; // 3001 to avoid TigerBeetle's default 3000
+const PORT = process.env.PORT || 3001;
 
 // BigInt JSON serialization helper
 function serializeBigInts(obj: any): any {
@@ -30,6 +37,10 @@ function serializeBigInts(obj: any): any {
 // Middleware
 app.use(cors({ origin: '*' }));
 app.use(express.json());
+
+// Serve static frontend files from 'dist' folder
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
 
 // Initialize VAL System
 // In a real scenario, these keys should be securely managed
@@ -65,6 +76,11 @@ const valSystem = new VALSystem(
             apiKey: process.env.MOOV_API_KEY || 'mock_key',
             apiSecret: process.env.MOOV_API_SECRET || 'mock_secret',
             sandbox: process.env.MOOV_SANDBOX === 'false' ? false : true
+        },
+        tillo: {
+            apiKey: process.env.TILLO_API_KEY || 'mock_key',
+            apiSecret: process.env.TILLO_API_SECRET || 'mock_secret',
+            sandbox: process.env.TILLO_SANDBOX === 'false' ? false : true
         }
     }
 );
@@ -250,7 +266,7 @@ app.get('/api/balance/:userId', async (req, res) => {
     try {
         const userId = req.params.userId;
         const balance = await spendEngine.getCreditBalance(userId);
-        res.json(balance);
+        res.json(serializeBigInts(balance));
     } catch (error: any) {
         console.error('Error fetching balance:', error);
         res.status(500).json({ error: error.message });
@@ -318,7 +334,7 @@ app.post('/api/spend', async (req, res) => {
         }
 
         const result = await spendEngine.spendCredit(params);
-        res.json(result);
+        res.json(serializeBigInts(result));
     } catch (error: any) {
         console.error('Error processing obligation:', error);
         res.status(400).json({ 
@@ -343,13 +359,95 @@ app.get('/api/narrative', async (req, res) => {
 });
 
 /**
- * GET /api/adapters
- * Get registered adapters
+ * POST /api/faucet
+ * Real-World Attestation Oracle (Dev/Demo Ingress)
+ * 
+ * Generates a cryptographically signed attestation and clears it via TigerBeetle.
+ * This represents "Real Value" entering the system from an external source.
  */
+app.post('/api/faucet', async (req, res) => {
+    try {
+        const { amount, userId, txHash } = req.body;
+        const depositAmount = BigInt(amount);
+
+        console.log(`[FAUCET] Generating Real-World Attestation for ${userId}...`);
+
+        // 1. Create Credit Event with External Proof
+        const eventId = `tx_faucet_${Date.now()}`;
+        const event: CreditEvent = {
+            id: eventId,
+            type: CreditEventType.VALUE_CREATED,
+            userId: userId || 'user_demo',
+            amount: depositAmount,
+            timestamp: new Date(),
+            metadata: { source: 'faucet', txHash },
+            transactionHash: txHash
+        };
+
+        // 2. Authoritative Attestation (The "Real World" Proof)
+        // We use the system's Attestor Engine to sign this event
+        const attestationEngine = valSystem.getAttestationEngine();
+        const attestation = await attestationEngine.attest(event);
+        
+        // 3. Mechanical Truth (TigerBeetle Clearing)
+        // Move funds from REALIZATION (External World) -> STABLECOIN (User Vault)
+        const transferId = BigInt(ethers.id(eventId)) & 0xffffffffffffffffffffffffffffffffn;
+        
+        const transferResult = await tigerBeetle.createTransfer(
+            BigInt(NARRATIVE_ACCOUNTS.OBSERVED_TOKEN_REALIZATION),    // Source: External World
+            BigInt(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN),   // Dest: User Vault
+            depositAmount,
+            999, // Ledger (SOVR)
+            1, // Code (DEPOSIT = 1)
+            transferId
+        );
+
+        if (!transferResult.success) {
+            throw new Error(`Ledger rejected deposit. Code: ${transferResult.error}`);
+        }
+
+        // 4. Narrative Observation (Postgres)
+        await narrativeMirror.recordAttestationVerified(
+            eventId,
+            depositAmount,
+            userId || 'user_demo',
+            attestation.attestor,
+            txHash || 'tx_faucet_internal'
+        );
+
+        console.log(`[FAUCET] Success. ${depositAmount} units cleared to ${userId}.`);
+        
+        res.json({
+            success: true,
+            txId: eventId,
+            attestation,
+            newBalance: serializeBigInts(depositAmount) 
+        });
+
+    } catch (error: any) {
+        console.error('[FAUCET] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 app.get('/api/adapters', (req, res) => {
-    // Access private adapters map for display
-    const adapters = Array.from((spendEngine as any).adapters.values());
+    // Access private adapters map for display and map to serializable JSON
+    const adapters = Array.from((spendEngine as any).adapters.values()).map((a: any) => ({
+        type: a.type,
+        enabled: a.enabled,
+        name: a.constructor.name
+    }));
     res.json(adapters);
+});
+
+app.get('/api/history/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+        const history = await narrativeMirror.getHistory(userId, limit);
+        res.json(serializeBigInts(history));
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Start Server
@@ -358,3 +456,5 @@ app.listen(PORT, () => {
     console.log(`   - Terminals: Ready`);
     console.log(`   - TigerBeetle: Attempting Connection...`);
 });
+
+

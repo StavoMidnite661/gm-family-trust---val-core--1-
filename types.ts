@@ -26,10 +26,29 @@ export enum CreditEventType {
 
     // === Reconciliation Events ===
     BALANCE_RECONCILED = 'BALANCE_RECONCILED',
-    AUDIT_LOG_CREATED = 'AUDIT_LOG_CREATED'
+    AUDIT_LOG_CREATED = 'AUDIT_LOG_CREATED',
+
+    // === Clearing Doctrine Events ===
+    OBLIGATION_CREATED = 'OBLIGATION_CREATED',
+    TRANSFER_INITIATED = 'TRANSFER_INITIATED',
+    FINALITY_REACHED = 'FINALITY_REACHED',
+    CLAIM_FILED = 'CLAIM_FILED',
+    SETTLEMENT_VERIFIED = 'SETTLEMENT_VERIFIED'
 }
 
-export type MerchantType = 'square' | 'tango' | 'instacart' | 'arcus' | 'moov' | 'amazon' | 'walmart' | 'stripe' | 'coinbase' | 'visa';
+/**
+ * SOVR Clearing Doctrine States
+ * "Truth is mechanical, not narrative."
+ */
+export enum ClearingStatus {
+    OBLIGATION = 'OBLIGATION', // The debt exists mechanically
+    TRANSFER = 'TRANSFER',     // Value is moving
+    FINALITY = 'FINALITY',     // Ledger is immutable
+    CLAIM = 'CLAIM',           // Rights to goods/services asserted
+    SETTLEMENT = 'SETTLEMENT'  // Exchange complete
+}
+
+export type MerchantType = 'square' | 'tango' | 'instacart' | 'arcus' | 'moov' | 'amazon' | 'walmart' | 'stripe' | 'coinbase' | 'visa' | 'toast' | 'pizza' | 'tillo';
 
 export type AnchorType = 'GROCERY' | 'UTILITY' | 'FUEL' | 'MOBILE' | 'HOUSING' | 'MEDICAL' | 'GENERAL_GOODS' | 'CASH_OUT' | 'PAYROLL' | 'REMITTANCE';
 
@@ -129,8 +148,8 @@ export interface CreditBalance {
 }
 
 // Narrative Mirror Types (Doctrine Aligned)
-export type NarrativeStatus = 'OBSERVED' | 'RECORDED' | 'FAILED';
-export type NarrativeSource = 'CLEARING_OBSERVATION' | 'ATTESTATION' | 'HONORING_ATTEMPT' | 'HONORING_RESULT' | 'INTERSYSTEM';
+export type NarrativeStatus = 'OBSERVED' | 'RECORDED' | 'FAILED' | 'IGNORED' | ClearingStatus;
+export type NarrativeSource = 'CLEARING_OBSERVATION' | 'ATTESTATION' | 'HONORING_ATTEMPT' | 'HONORING_RESULT' | 'INTERSYSTEM' | 'CLAIM_ASSERTION';
 
 export interface NarrativeEntry {
     id: string;

@@ -1,10 +1,10 @@
-# 📋 SOVR Master State Document (MSD) v2.2
+# 📋 SOVR Master State Document (MSD) v2.3
 
 > **The single source of truth for all Cabinet operations.**
 >
-> **Last Updated:** 2026-01-13T18:45:00-08:00
-> **Updated By:** FINTECH Architect
-> **MSD Version:** 2.2
+> **Last Updated:** 2026-01-30T05:25:00-08:00
+> **Updated By:** Antigravity Agent
+> **MSD Version:** 2.3
 
 ---
 
@@ -16,10 +16,11 @@
 project:
   name: "GM Family Trust - VAL Core"
   codename: "VAL Core Authority"
-  version: "1.2.0"
-  stage: "Real World Integration Complete"
+  version: "2.0.0"
+  stage: "Production / Live"
 
-  health: "Operational"
+  health: "Operational (Production Active)"
+  production_url: "https://sovr.credit"
   dev_server_url: "http://localhost:5173"
   backend_server_url: "http://localhost:3001"
 
@@ -48,45 +49,61 @@ repository:
 
 ```yaml
 sprint:
-  id: "SPRINT-2026-01-W2"
-  name: "Real World Infrastructure & Verification"
-  start_date: "2026-01-13"
+  id: "SPRINT-2026-01-W5"
+  name: "Vault Sync & Deployment Prep"
+  start_date: "2026-01-30"
   end_date: ""
   status: "Active"
 
 goals:
-  - goal: "Provision Real World Infrastructure (TigerBeetle + Postgres)."
-    status: "Completed"
-    owner: "FINTECH Architect"
-    date: "2026-01-13"
-  - goal: "Implement Canon Lock (Idempotency) in Clearing Client."
-    status: "Completed"
-    owner: "FINTECH Architect"
-    date: "2026-01-13"
-  - goal: "Verify End-to-End Real World Clearing Flow."
-    status: "Completed"
-    owner: "FINTECH Architect"
-    date: "2026-01-13"
-  - goal: "Align System Schema with Authoritative Doctrine."
-    status: "Completed"
-    owner: "FINTECH Architect"
-    date: "2026-01-13"
-  - goal: "Configuration Cleanup (.env, .gitignore, Ports)."
+  - goal: "Implement Wallet Persistence (localStorage)."
     status: "Completed"
     owner: "Antigravity Agent"
-    date: "2026-01-15"
+    date: "2026-01-30"
+  - goal: "Implement Automated Burn Flow (usdSOVR on Base)."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-30"
+  - goal: "Implement Transaction History Modal (Narrative Mirror)."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-30"
+  - goal: "Enforce Base Network (Chain ID 8453) in AttestationModal."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-30"
+  - goal: "Fix UI Alignment (Header/Content Gap, Mobile Nav)."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-30"
+  - goal: "Plan VPS Deployment (Docker + Domain Setup)."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-30"
+  - goal: "Execute Production Deployment (AWS EC2)."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-30"
+  - goal: "Stabilize Production (SSL, CSP, API Connectivity)."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-30"
+  - goal: "Verify Real-World Attestation in Production."
+    status: "Completed"
+    owner: "Antigravity Agent"
+    date: "2026-01-30"
 ```
 
 ### A.3 — Active Context
 
 ```yaml
 context:
-  current_focus: "Feature Development & Adoption. System is fully operational, secured, and documented."
+  current_focus: "Monitoring Production Stability. System is live at https://sovr.credit."
 
   last_decision:
-    decision: "Standardized Frontend Port to 5173 to avoid conflicts with TigerBeetle (3000) and Backend (3001)."
+    decision: "Enforced Base Network (Chain ID 8453) in AttestationModal to ensure burn transactions target the correct contract."
     by: "Antigravity Agent"
-    date: "2026-01-15"
+    date: "2026-01-30"
 
   doctrine:
     name: "SOVR Doctrine / Sovereign Semantic Model"
@@ -97,7 +114,7 @@ context:
       - "No Reversals (Failures and adjustments are new events)"
       - "Legacy Rails are Guests (External systems are optional 'honoring agents')"
 
-    forbidden_terms: # Retained from core framework
+    forbidden_terms:
       - "payment processing"
       - "transaction processing"
       - "reversals"
@@ -105,22 +122,22 @@ context:
       - "chargebacks"
 
   recent_changes:
-    - file: "val/clearing/tigerbeetle/client.ts"
-      change: "UPDATED: Implemented Canon Lock (Error 46 = Success)."
-      by: "FINTECH Architect"
-      date: "2026-01-13"
-    - file: "val/shared/narrative-mirror-bridge.ts"
-      change: "UPDATED: Aligned account IDs with TIGERBEETLE_LEDGER_SCHEMA.md."
-      by: "FINTECH Architect"
-      date: "2026-01-13"
-    - file: "README.md"
-      change: "UPDATED: Added instructions for native binary execution."
-      by: "FINTECH Architect"
-      date: "2026-01-13"
-    - file: "docker-compose.yml"
-      change: "UPDATED: Moved Postgres to port 5433 to avoid conflicts."
-      by: "FINTECH Architect"
-      date: "2026-01-13"
+    - file: "components/AttestationModal.tsx"
+      change: "UPDATED: Added automated burn logic with Base network enforcement."
+      by: "Antigravity Agent"
+      date: "2026-01-30"
+    - file: "App.tsx"
+      change: "UPDATED: Added HistoryModal, wallet persistence, and fixed UI spacing."
+      by: "Antigravity Agent"
+      date: "2026-01-30"
+    - file: "val/server.ts"
+      change: "UPDATED: Added /api/history/:userId endpoint."
+      by: "Antigravity Agent"
+      date: "2026-01-30"
+    - file: "val/core/narrative-mirror-service.ts"
+      change: "UPDATED: Added getHistory() method for 6-month lookback."
+      by: "Antigravity Agent"
+      date: "2026-01-30"
 ```
 
 ---
@@ -217,6 +234,52 @@ decisions:
 
 ```yaml
 sessions:
+  - id: "SESSION-20260130-PRODUCTION-DEPLOYMENT"
+    agent: "Antigravity Agent"
+    start: "2026-01-30T10:00:00-08:00"
+    end: "2026-01-30T15:20:00-08:00"
+    summary: |
+      - PROVISIONED AWS Infrastructure (EC2 t3.medium, Elastic IP, Security Groups).
+      - DEPLOYED Dockerized Microservices (API, TigerBeetle, Postgres) to Production.
+      - CONFIGURED Nginx Reverse Proxy with SSL (Certbot) for https://sovr.credit.
+      - FIXED Content Security Policy (CSP) by switching to relative API paths.
+      - FIXED Inter-container connectivity by defining explicit Docker network aliases.
+      - FIXED Backend crash by correcting Express route syntax.
+      - VERIFIED End-to-End Flow: Attestation ($100) and Spend ($100) on live Realization Ledger.
+      - GENERATED Branded Architecture Diagram.
+    artifacts_created:
+      - "architecture.md (Branded Diagram)"
+      - "walkthrough.md (Deployment Fixes)"
+    files_modified:
+      - ".env.production"
+      - "docker-compose.prod.yml"
+      - "val/server.ts"
+      - ".agents/MASTER_STATE_DOCUMENT.md"
+      - ".agents/REAL_WORLD_INTEGRATION_PLAN.md"
+    handoff_ready: true
+    status: "Complete"
+  - id: "SESSION-20260130-VAULT-SYNC-AND-UI"
+    agent: "Antigravity Agent"
+    start: "2026-01-30T02:00:00-08:00"
+    end: "2026-01-30T05:30:00-08:00"
+    summary: |
+      - Implemented Vault Sync features: Wallet Persistence (localStorage), Automated Burn (usdSOVR on Base).
+      - Added Transaction History Modal with /api/history/:userId endpoint.
+      - Added Base Network enforcement (Chain ID 8453) to AttestationModal.
+      - Fixed UI alignment issues (header/content gap, mobile navigation).
+      - Brainstormed deployment strategy (VPS + Docker + Namecheap DNS).
+      - Updated .agents/MASTER_STATE_DOCUMENT.md to v2.3.
+    artifacts_created:
+      - "walkthrough.md (Vault Sync)"
+    files_modified:
+      - "App.tsx"
+      - "components/AttestationModal.tsx"
+      - "val/server.ts"
+      - "val/core/narrative-mirror-service.ts"
+      - ".agents/MASTER_STATE_DOCUMENT.md"
+    handoff_ready: true
+    status: "Complete"
+
   - id: "SESSION-20260115-CLEANUP-AND-VERIFY"
     agent: "Antigravity Agent"
     start: "2026-01-15T05:00:00-08:00"

@@ -1,0 +1,5 @@
+{
+  "NODE_EXECUTABLE_PATH": "D:\\Program Files\\node-v25.2.1-win-x64\\node.exe",
+  "COMMENT": "This path is critical for executing scripts using the correct Node.js version."
+}
+

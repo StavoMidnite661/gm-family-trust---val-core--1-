@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { id as ethersId, Wallet } from 'ethers';
 import {
@@ -12,6 +11,11 @@ import {
 } from './types';
 import LedgerTable from './components/LedgerTable';
 import AssetAllocationChart from './components/AssetAllocationChart';
+import ToastController from './components/ToastController';
+import LandingPage from './components/LandingPage';
+import HonoringTerminal from './components/HonoringTerminal';
+import { AttestationModal } from './components/AttestationModal';
+import SystemArchitectureDoc from './components/SystemArchitectureDoc';
 import {
     LayoutDashboard,
     Database,
@@ -29,50 +33,88 @@ import {
     Fingerprint,
     Package,
     ShoppingCart,
-    Search,
     Check,
     Activity as PulseIcon,
     Scale,
     Layers,
     Shield,
     Lock,
-    Boxes,
     Sliders,
     Power,
     Calendar,
     FileSearch,
     Edit3,
-    Save
+    Save,
+    Terminal,
+    Cpu,
+    Radio,
+    History,
+    ExternalLink
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:3001/api';
-
-// MOCK ADMIN KEY (For Demo Terminal Authority)
-const MOCK_ADMIN_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // Common dev test key
+// Environment-aware API URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const MOCK_ADMIN_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
 const App: React.FC = () => {
     // UI State
-    const [view, setView] = useState<'dashboard' | 'ledger' | 'merchants' | 'vault' | 'adapters'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'ledger' | 'merchants' | 'vault' | 'adapters' | 'about'>('dashboard');
+    const [showLanding, setShowLanding] = useState(true);
     const [entries, setEntries] = useState<NarrativeEntry[]>([]);
     const [stableBalance, setStableBalance] = useState<bigint>(0n);
     const [odfiBalance, setOdfiBalance] = useState<bigint>(0n);
     const [mintBalance, setMintBalance] = useState<bigint>(0n);
     const [isClearing, setIsClearing] = useState(false);
-    const [unitAmount, setUnitAmount] = useState('50.00');
-    const [selectedMerchant, setSelectedMerchant] = useState<MerchantType>('instacart');
-    const [selectedAnchor, setSelectedAnchor] = useState<AnchorType>('GROCERY');
     const [selectedEntry, setSelectedEntry] = useState<NarrativeEntry | null>(null);
     const [lastSpendResult, setLastSpendResult] = useState<SpendResult | null>(null);
     const [stateHash, setStateHash] = useState<string>('0x...');
     const [editingAdapter, setEditingAdapter] = useState<IMerchantValueAdapter | null>(null);
     const [adapters, setAdapters] = useState<IMerchantValueAdapter[]>([]);
     const [isValidating, setIsValidating] = useState<string | null>(null);
-
-    // Account Introspection State
     const [monitorAccountId, setMonitorAccountId] = useState<number>(NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN);
     const [monitorBalance, setMonitorBalance] = useState<bigint>(0n);
+    const [walletAddress, setWalletAddress] = useState<string | null>(localStorage.getItem('sovr_wallet_address'));
+    const [isWalletConnected, setIsWalletConnected] = useState<boolean>(!!localStorage.getItem('sovr_wallet_address'));
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
 
-    // Derived Data
+    const connectWallet = useCallback(async () => {
+        if (typeof window !== 'undefined' && (window as any).ethereum) {
+            try {
+                const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+                if (accounts.length > 0) {
+                    setWalletAddress(accounts[0]);
+                    setIsWalletConnected(true);
+                    localStorage.setItem('sovr_wallet_address', accounts[0]);
+                }
+            } catch (err) {
+                console.error("Wallet connection failed:", err);
+            }
+        } else {
+            addToast({
+                title: 'Wallet Not Found',
+                message: 'Please install a Web3 wallet (MetaMask/Phantom) to continue.',
+                type: 'error'
+            });
+        }
+    }, []);
+
+    useEffect(() => {
+        const checkConnection = async () => {
+            if (typeof window !== 'undefined' && (window as any).ethereum && localStorage.getItem('sovr_wallet_address')) {
+                const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    setWalletAddress(accounts[0]);
+                    setIsWalletConnected(true);
+                } else {
+                    localStorage.removeItem('sovr_wallet_address');
+                    setWalletAddress(null);
+                    setIsWalletConnected(false);
+                }
+            }
+        };
+        checkConnection();
+    }, []);
+
     const verifiedAttestationCount = useMemo(() => entries.filter(e => !!e.attestation).length, [entries]);
 
     const assetData: AssetAllocation[] = useMemo(() => {
@@ -80,12 +122,11 @@ const App: React.FC = () => {
         if (total === 0n) return [{ label: 'Initializing', percentage: 100, color: '#1e293b' }];
         const stableP = Number((stableBalance * 100n) / total);
         return [
-            { label: 'sFIAT Liquid', percentage: stableP, color: '#f97316' },
-            { label: 'Trust Reserve', percentage: 100 - stableP, color: '#10b981' }
+            { label: 'sFIAT Liquid', percentage: stableP, color: '#00d4ff' },
+            { label: 'Trust Reserve', percentage: 100 - stableP, color: '#00ff88' }
         ];
     }, [stableBalance, odfiBalance]);
 
-    // Data Synchronization
     const refreshData = useCallback(async () => {
         try {
             const fetchBalance = async (userId: string) => {
@@ -95,13 +136,14 @@ const App: React.FC = () => {
                 return BigInt(data.available);
             };
 
-            const [
-                narrativeRes,
-                stableCoinBalance,
-                odfiBalance,
-                mintBalance,
-                adaptersRes
-            ] = await Promise.all([
+            const fetchLedgerBalance = async (accountId: number) => {
+                const response = await fetch(`${API_BASE_URL}/tigerbeetle/balance/${accountId}`);
+                if (!response.ok) throw new Error(`Failed to fetch ledger balance for ${accountId}`);
+                const data = await response.json();
+                return BigInt(data.available);
+            };
+
+            const [narrativeRes, stableCoinBalance, odfiBalance, mintBalance, adaptersRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/narrative`),
                 fetchBalance('HONORING_ADAPTER_STABLECOIN'),
                 fetchBalance('HONORING_ADAPTER_ODFI'),
@@ -120,8 +162,8 @@ const App: React.FC = () => {
             setMintBalance(mintBalance);
             setAdapters(adaptersData);
 
-            const monitorAccountKey = Object.keys(NARRATIVE_ACCOUNTS).find(key => NARRATIVE_ACCOUNTS[key as any] === monitorAccountId) || 'UNKNOWN';
-            const monitorAccountInfo = await fetchBalance(monitorAccountKey);
+            // Correctly fetch the raw ledger balance for the selected monitor account
+            const monitorAccountInfo = await fetchLedgerBalance(monitorAccountId);
             setMonitorBalance(monitorAccountInfo);
 
             const currentHash = ethersId(`${stableCoinBalance}${odfiBalance}${mintBalance}${narrativeData.length}`);
@@ -138,24 +180,87 @@ const App: React.FC = () => {
         return () => clearInterval(interval);
     }, [refreshData]);
 
-    // Spend Logic
-    const handleSpendCredit = async () => {
+    const [isFunding, setIsFunding] = useState(false);
+    const [showAttestationModal, setShowAttestationModal] = useState(false);
+
+    // Helper to dispatch toast events
+    const addToast = (detail: { title: string, message: string, type: 'success' | 'error' | 'info', txHash?: string }) => {
+        const event = new CustomEvent('jh-create-toast', { 
+            detail: {
+                message: detail.message, 
+                appearance: detail.type === 'error' ? 'negative' : detail.type === 'success' ? 'positive' : 'neutral',
+                timeout: 5000,
+                action: detail.txHash ? (
+                    <a href={`/tx/${detail.txHash}`} className="text-[10px] underline">View TX</a>
+                ) : undefined
+            } 
+        });
+        window.dispatchEvent(event);
+    };
+
+    const handleFunding = async (amountMicroUnits: number, txHash?: string) => {
+        setIsFunding(true);
+        try {
+            const res = await fetch(`${API_BASE_URL}/faucet`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: 'gm_trust_admin',
+                    amount: amountMicroUnits,
+                    txHash
+                })
+            });
+            
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            addToast({
+                title: 'Attestation Verified',
+                message: `External value cleared: $${(amountMicroUnits/1_000_000).toFixed(2)}`,
+                type: 'success',
+                txHash: data.txId
+            });
+            
+            // Refresh Data
+            const [balanceRes, mirrorRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/balance/gm_trust_admin`),
+                fetch(`${API_BASE_URL}/narrative`) // Refresh feed
+            ]);
+            
+            const balanceData = await balanceRes.json();
+            setStableBalance(BigInt(balanceData.available));
+            
+            const feedData = await mirrorRes.json();
+            setEntries(feedData);
+
+            return data; // Return full data including proof for the modal
+
+        } catch (err: any) {
+            console.error('Funding failed:', err);
+            addToast({
+                title: 'Attestation Failed',
+                message: err.message,
+                type: 'error'
+            });
+            throw err;
+        } finally {
+            setIsFunding(false);
+        }
+    };
+
+    const handleSpendCredit = async (amount: string, merchant: MerchantType, anchor: AnchorType) => {
         setIsClearing(true);
         try {
-            // 1. Prepare Intent Payload
             const timestamp = Date.now();
             const intent = {
                 userId: 'gm_trust_admin',
-                amount: parseFloat(unitAmount),
-                merchant: selectedMerchant,
+                amount: parseFloat(amount),
+                merchant: merchant,
                 timestamp,
                 metadata: { email: 'admin@gm-trust.family' }
             };
 
-            // 2. Sign Intent (Client-Side Authority)
-            // In a real app, this prompts Metamask. Here we use the terminal key.
             const wallet = new Wallet(MOCK_ADMIN_KEY);
-            // We sign the deterministic JSON string of the critical fields
             const messageToSign = JSON.stringify({
                 userId: intent.userId,
                 amount: intent.amount,
@@ -164,14 +269,10 @@ const App: React.FC = () => {
             });
             const signature = await wallet.signMessage(messageToSign);
 
-            // 3. Submit Signed Intent
             const response = await fetch(`${API_BASE_URL}/spend`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...intent,
-                    signature // Attach proof of intent
-                }),
+                body: JSON.stringify({ ...intent, signature }),
             });
 
             const result = await response.json();
@@ -181,11 +282,17 @@ const App: React.FC = () => {
             }
 
             setLastSpendResult(result);
-            await refreshData(); // Refresh data to show the latest state
+            await refreshData();
+
+            window.dispatchEvent(new CustomEvent('jh-create-toast', {
+                detail: { message: `Clearing Finalized: $${intent.amount} @ ${intent.merchant}`, appearance: 'positive' }
+            }));
 
         } catch (e: any) {
             console.error(e);
-            alert(`Flow Rejected: ${e.message}`);
+            window.dispatchEvent(new CustomEvent('jh-create-toast', {
+                detail: { message: `Flow Rejected: ${e.message}`, appearance: 'negative' }
+            }));
         } finally {
             setIsClearing(false);
         }
@@ -193,88 +300,154 @@ const App: React.FC = () => {
 
     const formatCurrency = (amount: bigint) => {
         const val = Number(amount) / 1_000_000;
-        const formatted = Math.abs(val).toLocaleString('en-US', {
-            style: 'currency', currency: 'USD'
-        });
+        const formatted = Math.abs(val).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
         return (val < 0 ? '-' : '') + formatted;
     };
 
     const navItems = [
-        { id: 'dashboard', label: 'TERMINAL', icon: LayoutDashboard },
-        { id: 'merchants', label: 'HONORING', icon: ArrowRightLeft },
-        { id: 'ledger', label: 'NARRATIVE', icon: Activity },
-        { id: 'vault', label: 'AUTH', icon: Database },
-        { id: 'adapters', label: 'ADAPTERS', icon: Sliders }
+        { id: 'dashboard', label: 'Terminal', icon: Terminal },
+        { id: 'merchants', label: 'Honoring', icon: Zap },
+        { id: 'ledger', label: 'Narrative', icon: Activity },
+        { id: 'vault', label: 'Authority', icon: Shield },
+        { id: 'adapters', label: 'Adapters', icon: Cpu },
+        { id: 'about', label: 'System', icon: FileSearch }
     ];
 
-    // NOTE: Adapter configuration functionality (toggle, update, validate) is stubbed
-    // as it would require additional backend endpoints which are not part of this fix.
     const toggleAdapter = (type: MerchantType) => console.warn("toggleAdapter is not implemented");
     const updateConfig = (type: MerchantType, params: Record<string, string>) => console.warn("updateConfig is not implemented");
     const validateAdapter = (type: string) => console.warn("validateAdapter is not implemented");
 
+    // Modal Components
     const ConfigModal = () => {
         const [localConfig, setLocalConfig] = useState<Record<string, string>>({});
-
         useEffect(() => {
-            if (editingAdapter?.configParams) {
-                setLocalConfig({ ...editingAdapter.configParams });
-            }
+            if (editingAdapter?.configParams) setLocalConfig({ ...editingAdapter.configParams });
         }, [editingAdapter]);
-
         if (!editingAdapter) return null;
-
-        const handleSave = () => {
-            updateConfig(editingAdapter.type, localConfig);
-            setEditingAdapter(null);
-        };
 
         return (
             <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setEditingAdapter(null)} />
-                <div className="relative w-full max-w-md bg-[#090e1a] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                    <div className="p-8 space-y-6">
-                        <div className="flex justify-between items-center">
-                            <div className="space-y-1">
-                                <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">HONORING AGENT PARAMS</span>
-                                <h3 className="text-xl font-black text-white italic">{editingAdapter.name}</h3>
+                <div className="relative w-full max-w-md glass-card p-8 space-y-6 animate-scale-in">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <span className="text-[10px] font-black neon-text-orange uppercase tracking-widest">Agent Config</span>
+                            <h3 className="text-xl font-black text-white">{editingAdapter.name}</h3>
+                        </div>
+                        <button onClick={() => setEditingAdapter(null)} className="p-2 text-slate-500 hover:text-white transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                        {Object.entries(localConfig).map(([key, val]) => (
+                            <div key={key} className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{key.replace(/_/g, ' ')}</label>
+                                <input
+                                    type="text"
+                                    value={val}
+                                    onChange={(e) => setLocalConfig(prev => ({ ...prev, [key]: e.target.value }))}
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-sm font-medium text-slate-200 focus:outline-none focus:border-cyan-500/50 transition-all"
+                                />
                             </div>
-                            <button onClick={() => setEditingAdapter(null)} className="p-2 text-slate-500 hover:text-white transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
+                        ))}
+                        {Object.keys(localConfig).length === 0 && (
+                            <p className="text-center text-slate-600 text-[12px] italic py-4">No configurable parameters.</p>
+                        )}
+                    </div>
+                    <div className="pt-4 flex gap-3">
+                        <button onClick={() => setEditingAdapter(null)} className="btn-secondary flex-1">Cancel</button>
+                        <button onClick={() => { updateConfig(editingAdapter.type, localConfig); setEditingAdapter(null); }} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                            <Save size={14} /> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
-                        <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                            {Object.entries(localConfig).map(([key, val]) => (
-                                <div key={key} className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{key.replace(/_/g, ' ')}</label>
-                                    <input
-                                        type="text"
-                                        value={val}
-                                        onChange={(e) => setLocalConfig(prev => ({ ...prev, [key]: e.target.value }))}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-sm font-medium text-slate-200 focus:outline-none focus:border-orange-500/50 transition-all"
-                                    />
+    const HistoryModal = ({ onClose, userId }: { onClose: () => void, userId: string }) => {
+        const [history, setHistory] = useState<NarrativeEntry[]>([]);
+        const [loading, setLoading] = useState(true);
+
+        useEffect(() => {
+            fetch(`${API_BASE_URL}/history/${userId}`)
+                .then(res => res.json())
+                .then(data => {
+                    setHistory(data);
+                    setLoading(false);
+                })
+                .catch(err => console.error("History fetch failed:", err));
+        }, [userId]);
+
+        return (
+            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={onClose} />
+                <div className="relative w-full max-w-2xl glass-card flex flex-col max-h-[85vh] overflow-hidden border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                    <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-orange-500/20 rounded-lg border border-orange-500/30">
+                                <Activity size={20} className="text-orange-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-white uppercase tracking-tight">Vault Transaction History</h3>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">6-Month Permanent Audit Trail</p>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-3">
+                        {loading ? (
+                            <div className="h-40 flex items-center justify-center">
+                                <div className="w-8 h-8 border-t-2 border-cyan-400 rounded-full animate-spin" />
+                            </div>
+                        ) : history.length === 0 ? (
+                            <div className="text-center py-10">
+                                <p className="text-sm font-bold text-slate-500 uppercase">No records found for this account</p>
+                            </div>
+                        ) : (
+                            history.map((entry, idx) => (
+                                <div key={idx} className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all group">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-[10px] font-bold text-slate-500 uppercase px-2 py-0.5 rounded bg-white/5 border border-white/10">
+                                                {new Date(entry.date).toLocaleDateString()}
+                                            </div>
+                                            <h4 className="text-xs font-black text-white uppercase tracking-tight">{entry.description}</h4>
+                                        </div>
+                                        {entry.txHash && (
+                                            <a 
+                                                href={`https://basescan.org/tx/${entry.txHash}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-1 px-2 rounded bg-cyan-500/10 text-[9px] font-black text-cyan-400 hover:bg-cyan-500/20 flex items-center gap-1 uppercase tracking-widest transition-all"
+                                            >
+                                                Verifiable Proof <ExternalLink size={10} />
+                                            </a>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {entry.lines.map((line, lid) => (
+                                            <div key={lid} className="px-2 py-1 rounded-md bg-black/40 border border-white/5 text-[10px] flex items-center gap-x-1.5">
+                                                <span className={`w-1.5 h-1.5 rounded-full ${line.type === 'DEBIT' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                                                <span className="text-slate-500 font-bold">Acct::{line.accountId}</span>
+                                                <span className={`font-black ${line.type === 'DEBIT' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                    {line.type === 'DEBIT' ? '-' : '+'}{formatCurrency(BigInt(line.amount))}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            ))}
-                            {Object.keys(localConfig).length === 0 && (
-                                <p className="text-center text-slate-600 text-[12px] italic py-4">No configurable parameters for this agent.</p>
-                            )}
-                        </div>
+                            ))
+                        )}
+                    </div>
 
-                        <div className="pt-4 flex gap-3">
-                            <button
-                                onClick={() => setEditingAdapter(null)}
-                                className="flex-1 py-3 px-6 rounded-xl border border-white/5 text-[12px] font-black text-slate-400 hover:bg-white/5 transition-all uppercase tracking-widest"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                className="flex-1 py-3 px-6 rounded-xl bg-orange-600 text-white text-[12px] font-black hover:bg-orange-500 transition-all shadow-xl shadow-orange-900/20 uppercase tracking-widest flex items-center justify-center gap-2"
-                            >
-                                <Save size={14} /> Save Config
-                            </button>
-                        </div>
+                    <div className="p-4 bg-black/40 border-t border-white/10 flex justify-center">
+                        <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2">
+                            <Shield size={10} /> Authorized Perspective :: Mechanical Truth Cluster :: 0X-NMM-AUTH
+                        </p>
                     </div>
                 </div>
             </div>
@@ -286,69 +459,73 @@ const App: React.FC = () => {
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedEntry(null)} />
-                <div className="relative w-full max-w-lg bg-black/40 backdrop-blur-3xl border border-white/10 rounded-[2rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-300">
-                    <div className="p-8 space-y-6">
-                        <div className="flex justify-between items-start">
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                                    <span className="text-[12px] font-black text-slate-500 uppercase tracking-widest">AUDIT INTROSPECTION</span>
-                                </div>
-                                <h3 className="text-xl font-black text-white leading-tight italic">{selectedEntry.description}</h3>
+                <div className="relative w-full max-w-lg glass-card p-8 space-y-6 animate-scale-in">
+                    <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="pulse-dot pulse-dot-emerald" />
+                                <span className="text-[12px] font-black text-slate-500 uppercase tracking-widest">Audit Introspection</span>
                             </div>
-                            <button onClick={() => setSelectedEntry(null)} className="p-2 rounded-xl bg-white/5 text-slate-400 hover:text-white transition-colors">
-                                <X size={18} />
-                            </button>
+                            <h3 className="text-xl font-black text-white leading-tight">{selectedEntry.description}</h3>
                         </div>
+                        <button onClick={() => setSelectedEntry(null)} className="p-2 rounded-xl bg-white/5 text-slate-400 hover:text-white transition-colors">
+                            <X size={18} />
+                        </button>
+                    </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                                <span className="text-[12px] font-black text-slate-500 uppercase tracking-widest block mb-1">Observation ID</span>
-                                <span className="text-[12px] font-mono text-slate-200 truncate block">{selectedEntry.id}</span>
-                            </div>
-                            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                                <span className="text-[12px] font-black text-slate-500 uppercase tracking-widest block mb-1">State</span>
-                                <span className={`text-[12px] font-black uppercase tracking-tight ${selectedEntry.status === 'RECORDED' ? 'text-emerald-400' : 'text-orange-400'}`}>{selectedEntry.status}</span>
-                            </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                            <span className="text-[12px] font-black text-slate-500 uppercase tracking-widest block mb-1">Observation ID</span>
+                            <span className="text-[12px] mono-value text-slate-200 truncate block">{selectedEntry.id}</span>
                         </div>
+                        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                            <span className="text-[12px] font-black text-slate-500 uppercase tracking-widest block mb-1">State</span>
+                            <span className={`text-[12px] font-black uppercase tracking-tight ${selectedEntry.status === 'RECORDED' ? 'neon-text-emerald' : 'neon-text-orange'}`}>{selectedEntry.status}</span>
+                        </div>
+                    </div>
 
-                        {selectedEntry.attestation && (
-                            <div className="p-6 rounded-[1.5rem] bg-orange-500/5 border border-orange-500/10 space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <Fingerprint size={16} className="text-orange-400" />
-                                    <span className="text-[12px] font-black text-orange-400 uppercase tracking-widest">TRUST ATTESTATION PROOF</span>
-                                </div>
-                                <div className="space-y-3">
-                                    <div>
-                                        <span className="text-[12px] font-black text-slate-500 uppercase block mb-1">MERKLE ROOT AUTHORITY</span>
-                                        <div className="text-[11px] font-mono text-slate-300 bg-black/50 p-3 rounded-xl border border-white/5 break-all leading-relaxed">
-                                            {selectedEntry.attestation.proof.merkleRoot}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span className="text-[12px] font-black text-slate-500 uppercase block mb-1">ATTESTOR KEY</span>
-                                        <div className="text-[11px] font-mono text-slate-400 truncate">{selectedEntry.attestation.attestor}</div>
+                    {selectedEntry.attestation && (
+                        <div className="p-6 rounded-[1.5rem] bg-cyan-500/5 border border-cyan-500/10 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <Fingerprint size={16} className="text-cyan-400" />
+                                <span className="text-[12px] font-black neon-text-cyan uppercase tracking-widest">Trust Attestation Proof</span>
+                            </div>
+                            <div className="space-y-3">
+                                <div>
+                                    <span className="text-[12px] font-black text-slate-500 uppercase block mb-1">Merkle Root</span>
+                                    <div className="text-[11px] mono-value text-slate-300 bg-black/50 p-3 rounded-xl border border-white/5 break-all leading-relaxed">
+                                        {selectedEntry.attestation.proof.merkleRoot}
                                     </div>
                                 </div>
-                            </div>
-                        )}
-
-                        <div className="space-y-4">
-                            <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest italic">MECHANICAL IMPACT (ZERO OVERDRAFT)</h4>
-                            <div className="space-y-2">
-                                {selectedEntry.lines.map((line, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-black/40 border border-white/[0.03]">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-1.5 h-1.5 rounded-full ${line.type === 'DEBIT' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                                            <span className="text-[13px] font-bold text-slate-300">Account::{line.accountId}</span>
-                                        </div>
-                                        <span className={`text-[14px] font-black mono ${line.type === 'DEBIT' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                            {line.type === 'DEBIT' ? '-' : '+'}{formatCurrency(BigInt(line.amount))}
-                                        </span>
-                                    </div>
-                                ))}
+                                <div>
+                                    <span className="text-[12px] font-black text-slate-500 uppercase block mb-1">Attestor</span>
+                                    <div className="text-[11px] mono-value text-slate-400 truncate">{selectedEntry.attestation.attestor}</div>
+                                </div>
                             </div>
                         </div>
+                    )}
+
+                    <div className="space-y-4">
+                        <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Mechanical Impact</h4>
+                        <div className="space-y-2">
+                            {selectedEntry.lines.map((line, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-black/40 border border-white/[0.03]">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-2 h-2 rounded-full ${line.type === 'DEBIT' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                                        <span className="text-[13px] font-bold text-slate-300">Account::{line.accountId}</span>
+                                    </div>
+                                    <span className={`text-[14px] font-black mono-value ${line.type === 'DEBIT' ? 'text-rose-400' : 'neon-text-emerald'}`}>
+                                        {line.type === 'DEBIT' ? '-' : '+'}{formatCurrency(BigInt(line.amount))}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="p-4 bg-black/40 border-t border-white/10 flex justify-center">
+                        <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2">
+                            <Shield size={10} /> Authorized Perspective :: Mechanical Truth Cluster :: 0X-NMM-AUTH
+                        </p>
                     </div>
                 </div>
             </div>
@@ -356,270 +533,317 @@ const App: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row h-screen w-full bg-[#050914] text-slate-100 selection:bg-orange-500/30 overflow-hidden relative font-['Inter']">
-            {/* Ambient Lighting */}
-            <div className="absolute top-[-5%] left-[-5%] w-[45%] h-[45%] bg-orange-600/5 rounded-full blur-[140px] pointer-events-none" />
+        <div className="h-[100dvh] w-full bg-[#050810] text-slate-100 selection:bg-cyan-500/30 overflow-hidden font-['Inter'] flex flex-col">
+            {showLanding && <LandingPage onEnter={() => setShowLanding(false)} />}
+            
+            <ToastController />
+            
+            {/* Animated Background */}
+            <div className="mesh-gradient absolute inset-0 pointer-events-none" />
+            <div className="grid-overlay absolute inset-0 pointer-events-none" />
 
-            <nav className="hidden lg:flex w-64 border-r border-white/5 bg-[#050914] flex-col z-20 shrink-0">
-                <div className="p-8 pb-4">
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-xl border border-white/10">
-                            <div className="w-3 h-3 bg-orange-600 rounded-full" />
+            {/* Floating Navigation */}
+            <nav className="fixed top-0 left-0 right-0 z-50 p-2 md:p-4">
+                <div className="max-w-7xl mx-auto glass-card px-4 py-3 md:px-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-orange-500 flex items-center justify-center shadow-lg shrink-0">
+                            <Radio size={20} className="text-white" />
                         </div>
-                        <div>
-                            <h1 className="text-[12px] font-black tracking-widest text-white uppercase leading-tight">SOVR Development <br /> Holdings LLC</h1>
-                            <p className="text-[9px] font-black text-slate-500 tracking-[0.2em] uppercase mt-1">VAL CORE AUTHORITY</p>
+                        <div className="hidden sm:block">
+                            <h1 className="text-sm font-black uppercase tracking-widest text-white">SOVR ValCore</h1>
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">SOVR Authority</p>
                         </div>
                     </div>
-                </div>
+                    
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 px-2 -mx-2 flex-1 sm:flex-none justify-start sm:justify-center mask-fade-edges sm:mask-none">
+                        {navItems.map(nav => (
+                            <button
+                                key={nav.id}
+                                onClick={() => setView(nav.id as any)}
+                                className={`nav-pill flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all shrink-0 ${
+                                    view === nav.id 
+                                        ? 'bg-white/10 text-white shadow-[0_0_15px_-3px_rgba(255,255,255,0.2)] border border-white/20' 
+                                        : 'text-slate-500 hover:text-white hover:bg-white/5'
+                                }`}
+                            >
+                                <nav.icon size={16} className={view === nav.id ? 'text-cyan-400' : ''} />
+                                <span className="hidden md:inline text-[11px] font-bold uppercase tracking-wider">{nav.label}</span>
+                            </button>
+                        ))}
+                    </div>
 
-                <div className="mt-8 px-4 space-y-1">
-                    {navItems.map(nav => (
-                        <button
-                            key={nav.id}
-                            onClick={() => setView(nav.id as any)}
-                            className={`w-full flex items-center gap-4 px-5 py-3 rounded-xl text-[14px] font-black transition-all duration-200 uppercase tracking-widest ${view === nav.id ? 'bg-white/5 text-white border border-white/5 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="pulse-dot pulse-dot-emerald" />
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden lg:inline">Live</span>
+                        </div>
+                        <button 
+                            onClick={() => setShowAttestationModal(true)}
+                            className="group flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all cursor-pointer"
                         >
-                            <nav.icon size={18} /> {nav.label}
+                            <WalletIcon size={14} className={`text-cyan-400 ${isFunding ? 'animate-pulse' : ''}`} />
+                            <span className="text-sm font-black mono-value text-white group-hover:neon-text-cyan transition-all">
+                                {isFunding ? 'Attesting...' : formatCurrency(stableBalance)}
+                            </span>
                         </button>
-                    ))}
-                </div>
-
-                <div className="mt-auto p-6 space-y-4">
-                    <div className="p-5 bg-white/[0.02] rounded-[1.5rem] border border-white/5 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                                <span className="text-[11px] uppercase font-black text-slate-400 tracking-widest">PROTOCOL PULSE</span>
-                            </div>
-                            <CheckCircle2 size={12} className="text-emerald-500" />
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">CURRENT STATE HASH</p>
-                            <div className="bg-black/40 border border-white/5 rounded-lg p-2 text-[10px] font-mono text-slate-500 truncate">{stateHash}</div>
-                        </div>
                     </div>
                 </div>
             </nav>
 
-            <main className="flex-1 flex flex-col overflow-hidden z-10 relative">
-                <header className="h-16 flex items-center justify-between px-10 bg-[#050914] shrink-0 border-b border-white/5">
-                    <div className="flex items-center gap-6">
-                        <h2 className="text-xl font-black text-white italic tracking-tighter uppercase">{view.toUpperCase()} <span className="text-orange-500">CONTROL</span></h2>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                        <div className="flex items-center gap-3">
-                            <PulseIcon size={12} className="text-emerald-500 animate-pulse" />
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">AUTHORITY HEARTBEAT:</span>
-                            <span className="text-white font-mono text-[10px] tracking-widest">{stateHash}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <WalletIcon size={14} className="text-orange-400" />
-                            <span className="text-[16px] font-black text-white mono leading-none tracking-tighter">{formatCurrency(stableBalance)}</span>
-                        </div>
-                    </div>
-                </header>
-
-                <div className="flex-1 overflow-y-auto p-8 space-y-8 scroll-smooth custom-scrollbar pb-10">
+            {/* Main Content */}
+            <main className="relative z-10 pt-28 md:pt-32 pb-12 px-4 md:px-8 flex-1 overflow-y-auto custom-scrollbar">
+                <div className="max-w-7xl mx-auto">
+                    
+                    {/* Dashboard View */}
                     {view === 'dashboard' && (
-                        <div className="space-y-8 animate-in fade-in duration-500 h-full flex flex-col">
-                            <div className="grid grid-cols-4 gap-6 shrink-0">
-                                {[
-                                    { label: 'SFIAT CAP', value: formatCurrency(stableBalance), icon: Coins },
-                                    { label: 'OBSERVATIONS', value: entries.length, icon: Activity },
-                                    { label: 'ATTESTED FLOWS', value: verifiedAttestationCount, icon: ShieldCheck },
-                                    { label: 'TRUST RESERVE', value: formatCurrency(odfiBalance), icon: Scale }
-                                ].map((m, idx) => (
-                                    <div key={idx} className="p-6 rounded-2xl bg-[#090e1a] border border-white/[0.04] shadow-xl relative overflow-hidden group">
-                                        <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.08] transition-all transform scale-150 rotate-12 pointer-events-none">
-                                            <m.icon size={64} />
-                                        </div>
-                                        <div className="flex items-center justify-between mb-3 relative z-10">
-                                            <div className="p-2.5 bg-white/5 rounded-xl text-orange-400 border border-white/5">
-                                                <m.icon size={18} />
+                        <div className="space-y-8 animate-fade-in">
+                            {/* Hero Stats */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 stagger-children">
+                                {
+                                    [
+                                        { label: 'sFIAT Cap', value: formatCurrency(stableBalance), sub: 'SYSTEM_CAP', icon: Coins, color: 'cyan' },
+                                        { label: 'Observations', value: entries.length, sub: 'AUDIT_LOGS', icon: Activity, color: 'orange' },
+                                        { label: 'Attested', value: verifiedAttestationCount, sub: 'VERIFIED_PROOFS', icon: ShieldCheck, color: 'emerald' },
+                                        { label: 'Reserve', value: formatCurrency(odfiBalance), sub: 'ODFI_BACKING', icon: Scale, color: 'purple' }
+                                    ].map((m, idx) => (
+                                        <div key={idx} className="glass-card p-6 md:p-8 group hover-lift animate-slide-up relative overflow-hidden">
+                                            {/* Background Gradient & Glow - Subtle Vault Feel */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                            <div className="absolute -right-10 -top-10 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl group-hover:bg-cyan-500/10 transition-all duration-500" />
+                                            
+                                            <div className="relative z-10 flex flex-col h-full justify-between">
+                                                <div className="flex items-start justify-between mb-4 md:mb-6">
+                                                    <div>
+                                                        <h3 className="text-lg md:text-xl font-black text-white uppercase tracking-tight mb-1">{m.label}</h3>
+                                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{m.sub}</p>
+                                                    </div>
+                                                    <div className={`p-2 rounded-xl md:p-2.5 bg-${m.color === 'cyan' ? 'cyan' : m.color === 'orange' ? 'orange' : m.color === 'emerald' ? 'emerald' : 'purple'}-500/10 border border-${m.color}-500/20 shadow-[0_0_15px_-3px_rgba(0,0,0,0.3)] shrink-0`}>
+                                                        <m.icon size={18} className={`text-${m.color === 'cyan' ? '[#00d4ff]' : m.color === 'orange' ? '[#ff6b35]' : m.color === 'emerald' ? '[#00ff88]' : '[#a855f7]'}`} />
+                                                    </div>
+                                                </div>
+                                                
+                                                <div>
+                                                    <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1 opacity-70">Current Value</div>
+                                                    <div className={`text-2xl md:text-3xl font-black mono-value ${m.color === 'cyan' ? 'neon-text-cyan' : 'text-white'} drop-shadow-lg`}>{m.value}</div>
+                                                </div>
                                             </div>
-                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{m.label}</span>
+
+                                            {/* Micro-accent line */}
+                                            <div className={`absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-${m.color}-500/50 to-transparent w-0 group-hover:w-full transition-all duration-700 ease-out`} />
                                         </div>
-                                        <div className="text-2xl font-black text-white mono tracking-tight relative z-10">{m.value}</div>
-                                    </div>
-                                ))}
+                                    ))
+                                }
                             </div>
 
-                            <div className="grid grid-cols-12 gap-8 flex-1 overflow-hidden">
-                                <div className="col-span-8 flex flex-col gap-6 overflow-hidden">
-                                    <div className="p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 relative overflow-hidden group shadow-2xl shrink-0">
-                                        <div className="flex items-center gap-5 mb-6">
-                                            <div className="p-4 bg-orange-600/20 rounded-[1.2rem] text-orange-400 border border-orange-500/20 shadow-xl">
-                                                <Layers size={24} />
+                            {/* Main Grid */}
+                            <div className="grid grid-cols-12 gap-6">
+                                {/* Doctrine Panel */}
+                                <div className="col-span-12 lg:col-span-8">
+                                    <div className="glass-card p-8 h-full relative overflow-hidden group">
+                                        {/* Subtle Background Accent */}
+                                        <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-cyan-900/10 rounded-full blur-[100px] pointer-events-none" />
+                                        
+                                        <div className="flex items-center gap-5 mb-8 relative z-10">
+                                            <div className="p-4 bg-cyan-950/30 rounded-2xl border border-cyan-500/10 shadow-[0_0_20px_-5px_rgba(8,145,178,0.2)]">
+                                                <Layers size={28} className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
                                             </div>
                                             <div>
-                                                <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-tight">ZERO-DEBT DOCTRINE</h2>
-                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">MECHANICAL SUSTAINABILITY PROTOCOL</p>
+                                                <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-1">Zero-Debt Doctrine</h2>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mechanical Sustainability Protocol</p>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-10">
-                                            <div className="space-y-3">
-                                                <h3 className="text-[11px] font-black text-orange-400 uppercase tracking-[0.2em] flex items-center gap-2"><Lock size={14} /> THE KERNEL</h3>
-                                                <p className="text-[12px] text-slate-400 leading-relaxed">
-                                                    TigerBeetle clears transactions atomically at the trust's request. No units are minted; we acknowledge <span className="text-white italic">attested input value</span>.
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                                            <div className="p-6 rounded-xl bg-black/40 border border-white/5 hover:border-cyan-500/20 transition-colors group/card">
+                                                <div className="flex items-center gap-2 mb-4">
+                                                    <div className="p-1.5 rounded bg-cyan-500/10">
+                                                        <Lock size={14} className="text-cyan-400" />
+                                                    </div>
+                                                    <h3 className="text-[12px] font-black text-white uppercase tracking-widest group-hover/card:text-cyan-400 transition-colors">The Kernel</h3>
+                                                </div>
+                                                <p className="text-[13px] text-slate-400 leading-relaxed font-medium">
+                                                    TigerBeetle clears transactions atomically. No units are minted; we acknowledge <span className="text-white font-bold drop-shadow-md">attested input value</span>.
                                                 </p>
                                             </div>
-                                            <div className="space-y-3">
-                                                <h3 className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.2em] flex items-center gap-2"><PulseIcon size={14} /> THE MIRROR</h3>
-                                                <p className="text-[12px] text-slate-400 leading-relaxed">
-                                                    The Narrative Mirror provides a human-readable audit trail of mechanical clearing. It enables verification without compromising speed.
+                                            
+                                            <div className="p-6 rounded-xl bg-black/40 border border-white/5 hover:border-emerald-500/20 transition-colors group/card">
+                                                <div className="flex items-center gap-2 mb-4">
+                                                    <div className="p-1.5 rounded bg-emerald-500/10">
+                                                        <PulseIcon size={14} className="text-emerald-400" />
+                                                    </div>
+                                                    <h3 className="text-[12px] font-black text-white uppercase tracking-widest group-hover/card:text-emerald-400 transition-colors">The Mirror</h3>
+                                                </div>
+                                                <p className="text-[13px] text-slate-400 leading-relaxed font-medium">
+                                                    The Narrative Mirror provides a human-readable audit trail of mechanical clearing without compromising speed.
                                                 </p>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4 flex-1 flex flex-col min-h-0 overflow-hidden">
-                                        <div className="flex items-center justify-between px-1 shrink-0">
-                                            <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-white flex items-center gap-2">
-                                                <PulseIcon size={16} className="text-orange-500" /> OBSERVATION FEED
-                                            </h2>
-                                            <button onClick={() => setView('ledger')} className="text-[10px] font-black text-orange-400 uppercase tracking-widest hover:text-white transition-all underline underline-offset-4">FULL AUDIT LOG</button>
-                                        </div>
-                                        <div className="space-y-2.5 overflow-y-auto flex-1 custom-scrollbar pr-2 pb-4">
-                                            {entries.slice(0, 10).map((e) => (
-                                                <div key={e.id} onClick={() => setSelectedEntry(e)} className="p-4 rounded-[1.5rem] bg-[#090e1a] border border-white/[0.04] hover:border-white/10 transition-all cursor-pointer group flex justify-between items-center shadow-md">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-[14px] font-black text-white block italic tracking-tight group-hover:text-orange-400 transition-colors">{e.description}</span>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded-md">{e.source.replace(/_/g, ' ')}</span>
-                                                            <span className="text-[9px] font-black text-slate-700">•</span>
-                                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">ID::{e.id.split('-').pop()}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-600 group-hover:text-white group-hover:bg-orange-600/20 transition-all">
-                                                        <ChevronRight size={18} />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {entries.length > 10 && (
-                                                <div className="text-center pt-2">
-                                                    <button onClick={() => setView('ledger')} className="text-[10px] font-black text-orange-400 uppercase tracking-widest hover:text-slate-300">View All {entries.length} Observations</button>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="col-span-4 h-full">
-                                    <div className="p-8 bg-[#090e1a] border border-white/[0.04] rounded-[2rem] shadow-2xl h-full flex flex-col">
-                                        <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-white flex items-center gap-2 mb-8">
-                                            <PieChart size={16} className="text-orange-500" /> TRUST ALLOCATIONS
-                                        </h2>
-                                        <AssetAllocationChart data={assetData} />
+                                {/* Allocation Chart */}
+                                <div className="col-span-12 lg:col-span-4">
+                                    <div className="glass-card p-8 h-full relative overflow-hidden">
+                                        <div className="relative z-10">
+                                            <h2 className="text-[12px] font-black uppercase tracking-widest text-white flex items-center gap-3 mb-8">
+                                                <div className="p-1.5 bg-cyan-500/10 rounded-lg">
+                                                    <PieChart size={16} className="text-cyan-400" /> 
+                                                </div>
+                                                Allocations
+                                            </h2>
+                                            <div className="transform scale-110 mt-4">
+                                                <AssetAllocationChart data={assetData} />
+                                            </div>
+                                        </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Observation Feed */}
+                            <div className="glass-card p-8 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-[400px] h-[100px] bg-gradient-to-b from-orange-900/10 to-transparent blur-3xl pointer-events-none" />
+                                
+                                <div className="flex items-center justify-between mb-8 relative z-10">
+                                    <h2 className="text-[12px] font-black uppercase tracking-widest text-white flex items-center gap-3">
+                                        <div className="p-1.5 bg-orange-500/10 rounded-lg">
+                                            <PulseIcon size={16} className="text-orange-500" /> 
+                                        </div>
+                                        Live Observation Feed
+                                    </h2>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setShowHistoryModal(true)} className="px-4 py-2 rounded-lg bg-white/5 border border-white/5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-white hover:bg-white/10 hover:border-white/10 transition-all flex items-center gap-2 group">
+                                            History <History size={12} />
+                                        </button>
+                                        <button onClick={() => setView('ledger')} className="px-4 py-2 rounded-lg bg-white/5 border border-white/5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-white hover:bg-white/10 hover:border-white/10 transition-all flex items-center gap-2 group">
+                                            Full Audit <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 relative z-10">
+                                    {entries.slice(0, 6).map((e) => (
+                                        <div key={e.id} onClick={() => setSelectedEntry(e)} className="p-4 rounded-xl bg-black/40 border border-white/5 hover:border-cyan-500/30 hover:bg-cyan-950/20 transition-all cursor-pointer group flex flex-col justify-between h-[100px] shadow-sm hover:shadow-cyan-900/20 relative overflow-hidden">
+                                            {/* Hover Glow */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            
+                                            <div className="flex justify-between items-start relative z-10">
+                                                <span className={`badge ${e.source === 'ATTESTATION' ? 'badge-success' : 'badge-neutral'} text-[9px] py-0.5`}>{e.source.replace(/_/g, ' ')}</span>
+                                                <ChevronRight size={14} className="text-slate-600 group-hover:text-cyan-400 transition-colors transform group-hover:translate-x-1" />
+                                            </div>
+                                            
+                                            <div className="relative z-10">
+                                                <span className="text-[13px] font-bold text-slate-200 block truncate mb-1 group-hover:text-white transition-colors">{e.description}</span>
+                                                <span className="text-[10px] font-mono text-slate-500">ID::{e.id.split('-').pop()}</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
                     )}
 
+                    {/* Ledger View */}
                     {view === 'ledger' && (
-                        <div className="h-full flex flex-col space-y-8 animate-in fade-in duration-500 overflow-hidden">
-                            <div className="flex items-center justify-between shrink-0">
-                                <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none italic">LEDGER <span className="text-orange-500">CONTROL</span></h1>
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="flex items-center justify-between">
+                                <h1 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tight">
+                                    Narrative <span className="text-gradient">Control</span>
+                                </h1>
                             </div>
-                            <div className="flex-1 p-8 bg-[#090e1a] border border-white/[0.04] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col">
+                            <div className="glass-card p-6 md:p-8 scan-lines">
                                 <LedgerTable entries={entries} onSelectEntry={setSelectedEntry} />
                             </div>
                         </div>
                     )}
 
+                    {/* Vault View */}
                     {view === 'vault' && (
-                        <div className="flex flex-col space-y-8 animate-in fade-in duration-500 h-full overflow-hidden pb-4">
-                            <div className="shrink-0 flex items-center justify-between">
-                                <h1 className="text-3xl font-black text-white uppercase tracking-tighter leading-none italic">AUTHORITY <span className="text-orange-500">VAULT</span></h1>
-                                <div className="flex items-center gap-5 px-6 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
-                                    <CheckCircle2 size={18} className="text-emerald-500" />
-                                    <span className="text-[12px] font-black text-emerald-500 uppercase tracking-[0.2em]">DOUBLE-ENTRY VERIFIED</span>
+                        <div className="space-y-8 animate-fade-in">
+                            <div className="flex items-center justify-between">
+                                <h1 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tight">
+                                    Authority <span className="text-gradient">Vault</span>
+                                </h1>
+                                <div className="badge badge-success px-4 py-2">
+                                    <CheckCircle2 size={14} /> Double-Entry Verified
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-8 shrink-0">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 stagger-children">
                                 {[
-                                    { label: 'Genesis Mint', id: NARRATIVE_ACCOUNTS.MINT, balance: mintBalance, color: 'orange', sub: 'SYSTEM_GENESIS', icon: Boxes },
-                                    { label: 'sFIAT Liquid', id: NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN, balance: stableBalance, color: 'white', sub: 'OPERATIONAL_POOL', icon: Database },
-                                    { label: 'Family Reserve', id: NARRATIVE_ACCOUNTS.HONORING_ADAPTER_ODFI, balance: odfiBalance, color: 'white', sub: 'ODFI_BACKSTOP', icon: Shield }
+                                    { label: 'Genesis Mint', id: NARRATIVE_ACCOUNTS.MINT, balance: mintBalance, sub: 'SYSTEM_GENESIS', icon: Database },
+                                    { label: 'sFIAT Liquid', id: NARRATIVE_ACCOUNTS.HONORING_ADAPTER_STABLECOIN, balance: stableBalance, sub: 'OPERATIONAL_POOL', icon: Coins },
+                                    { label: 'Family Reserve', id: NARRATIVE_ACCOUNTS.HONORING_ADAPTER_ODFI, balance: odfiBalance, sub: 'ODFI_BACKSTOP', icon: Shield }
                                 ].map((acc, i) => (
-                                    <div key={i} className="p-8 rounded-[2.5rem] bg-[#090e1a] border border-white/[0.04] shadow-xl flex flex-col justify-between group h-48 relative overflow-hidden transition-all hover:bg-[#0c1221] hover:border-white/10">
-                                        <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-all transform scale-150 rotate-12 pointer-events-none">
-                                            <acc.icon size={80} />
-                                        </div>
-                                        <div className="flex items-start justify-between relative z-10">
-                                            <div className="space-y-0.5">
-                                                <h3 className="text-xl font-black text-white tracking-tight leading-none italic">{acc.label}</h3>
-                                                <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{acc.sub}</p>
+                                    <div key={i} className="glass-card p-8 group hover-lift animate-slide-up">
+                                        <div className="flex items-start justify-between mb-6">
+                                            <div>
+                                                <h3 className="text-xl font-black text-white">{acc.label}</h3>
+                                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{acc.sub}</p>
                                             </div>
-                                            <span className="text-[10px] mono font-bold text-slate-500 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5 tracking-tighter">ACC::{acc.id}</span>
+                                            <span className="text-[10px] mono-value text-slate-500 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">ACC::{acc.id}</span>
                                         </div>
-                                        <div className="mt-auto relative z-10">
-                                            <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest mb-1">MECHANICAL BALANCE</div>
-                                            <div className={`text-3xl font-black mono tracking-tighter truncate ${Number(acc.balance) < 0 ? 'text-orange-400' : 'text-white'}`}>{formatCurrency(acc.balance)}</div>
-                                        </div>
+                                        <div className="text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2">Mechanical Balance</div>
+                                        <div className={`text-3xl font-black mono-value ${Number(acc.balance) < 0 ? 'text-rose-400' : 'neon-text-cyan'}`}>{formatCurrency(acc.balance)}</div>
                                     </div>
                                 ))}
                             </div>
 
-                            <div className="grid grid-cols-12 gap-8 flex-1 overflow-hidden">
-                                <div className="col-span-7 p-10 rounded-[3rem] bg-white/[0.02] border border-white/5 space-y-8 shadow-2xl relative overflow-hidden flex flex-col justify-center">
-                                    <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none transform translate-x-1/4 -translate-y-1/4"><Shield size={160} /></div>
-                                    <div className="flex items-center gap-6">
-                                        <div className="p-4 bg-orange-500/10 rounded-2xl text-orange-400 border border-orange-500/20"><ShieldCheck size={28} /></div>
-                                        <h3 className="text-xl font-black text-white uppercase italic tracking-widest leading-none">TRUST GOVERNANCE</h3>
-                                    </div>
-                                    <p className="text-[15px] text-slate-400 leading-relaxed font-medium">
-                                        The SOVR FAMILY TRUST enforces a strict <span className="text-white font-black italic underline decoration-orange-500/50 underline-offset-4">Zero Overdraft</span> protocol. Clearing capacity is directly bounded by physical sFIAT injected into the Authority Gate.
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-8">
-                                        <div className="p-6 rounded-[2rem] bg-black/40 border border-white/[0.03] space-y-4">
-                                            <div className="flex items-center gap-4">
-                                                <Lock size={16} className="text-orange-400" />
-                                                <h5 className="text-[12px] font-black text-orange-400 uppercase tracking-[0.2em] italic leading-none">INPUT CONTROL</h5>
-                                            </div>
-                                            <p className="text-[12px] text-slate-500 leading-snug">Value enters only via cryptographically signed attestations. No units exist without explicit funding.</p>
+                            <div className="grid grid-cols-12 gap-6">
+                                <div className="col-span-12 lg:col-span-7 glass-card p-8">
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="p-3 bg-orange-500/10 rounded-xl border border-orange-500/20">
+                                            <ShieldCheck size={24} className="text-orange-400" />
                                         </div>
-                                        <div className="p-6 rounded-[2rem] bg-black/40 border border-white/[0.03] space-y-4">
-                                            <div className="flex items-center gap-4">
-                                                <PulseIcon size={16} className="text-emerald-400" />
-                                                <h5 className="text-[12px] font-black text-emerald-400 uppercase tracking-[0.2em] italic leading-none">STATE INTEGRITY</h5>
+                                        <h3 className="text-xl font-black text-white uppercase tracking-tight">Trust Governance</h3>
+                                    </div>
+                                    <p className="text-[14px] text-slate-400 leading-relaxed mb-6">
+                                        The SOVR FAMILY TRUST enforces a strict <span className="text-white font-bold neon-text-orange">Zero Overdraft</span> protocol. Clearing capacity is directly bounded by physical sFIAT injected into the Authority Gate.
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="p-5 rounded-xl bg-black/30 border border-white/5">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Lock size={14} className="text-cyan-400" />
+                                                <h5 className="text-[11px] font-black neon-text-cyan uppercase">Input Control</h5>
                                             </div>
-                                            <p className="text-[12px] text-slate-500 leading-snug">Global state is verified every 3 seconds via recursive hashing of the TigerBeetle-ready ledger.</p>
+                                            <p className="text-[12px] text-slate-500 leading-snug">Value enters only via cryptographically signed attestations.</p>
+                                        </div>
+                                        <div className="p-5 rounded-xl bg-black/30 border border-white/5">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <PulseIcon size={14} className="text-emerald-400" />
+                                                <h5 className="text-[11px] font-black neon-text-emerald uppercase">State Integrity</h5>
+                                            </div>
+                                            <p className="text-[12px] text-slate-500 leading-snug">Global state verified every 3 seconds via recursive hashing.</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="col-span-5 flex flex-col gap-8 overflow-hidden">
-                                    <div className="flex items-center justify-between px-1">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-orange-500/10 rounded-2xl text-orange-400"><Search size={22} /></div>
-                                            <h3 className="text-xl font-black text-white uppercase italic tracking-tight leading-none">INTROSPECTION</h3>
-                                        </div>
+                                <div className="col-span-12 lg:col-span-5 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-black text-white uppercase tracking-tight">Introspection</h3>
                                         <select
                                             value={monitorAccountId}
                                             onChange={(e) => setMonitorAccountId(Number(e.target.value))}
-                                            className="bg-[#090e1a] border border-white/5 rounded-2xl py-3 px-6 text-[12px] font-black text-slate-400 focus:outline-none focus:border-orange-500/50 appearance-none cursor-pointer shadow-xl uppercase tracking-widest"
+                                            className="bg-[#0a0f1e] border border-white/10 rounded-xl py-2 px-4 text-[11px] font-bold text-slate-400 focus:outline-none focus:border-cyan-500/50 cursor-pointer"
                                         >
                                             {Object.entries(NARRATIVE_ACCOUNTS).map(([key, val]) => (
                                                 <option key={val} value={val} className="bg-slate-900">{key.replace(/_/g, ' ')}</option>
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="flex-1 p-10 bg-[#090e1a] rounded-[3rem] border border-white/[0.04] flex flex-col justify-center items-center text-center shadow-2xl relative overflow-hidden group">
-                                        <div className="absolute inset-0 bg-orange-500/[0.01] animate-pulse pointer-events-none" />
-                                        <span className="text-[12px] font-black text-slate-600 uppercase tracking-[0.4em] mb-8">REAL-TIME READOUT</span>
-                                        <div className="text-6xl font-black text-white mono tracking-tighter leading-none mb-10 w-full truncate">{formatCurrency(monitorBalance)}</div>
-                                        <div className="flex gap-12 border-t border-white/5 pt-10 w-full justify-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[11px] font-black text-slate-700 uppercase tracking-[0.3em] mb-3">STATUS</span>
-                                                <span className="text-[12px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-3 italic"><CheckCircle2 size={16} /> SYNC_OK</span>
+                                    <div className="glass-card p-8 text-center animate-glow-pulse">
+                                        <span className="text-[11px] font-bold text-slate-600 uppercase tracking-widest block mb-4">Real-Time Readout</span>
+                                        <div className="text-4xl md:text-5xl font-black mono-value neon-text-cyan mb-6">{formatCurrency(monitorBalance)}</div>
+                                        <div className="flex justify-center gap-8 border-t border-white/5 pt-6">
+                                            <div className="text-center">
+                                                <span className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Status</span>
+                                                <span className="text-[11px] font-black neon-text-emerald flex items-center gap-1"><CheckCircle2 size={12} /> SYNC</span>
                                             </div>
-                                            <div className="w-px h-14 bg-white/5" />
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[11px] font-black text-slate-700 uppercase tracking-[0.3em] mb-3">STATE_HASH</span>
-                                                <span className="text-[12px] font-mono text-slate-500 tracking-tighter">{stateHash.slice(0, 8).toLowerCase()}</span>
+                                            <div className="text-center">
+                                                <span className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Hash</span>
+                                                <span className="text-[11px] mono-value text-slate-500">{stateHash.slice(0, 8)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -628,94 +852,61 @@ const App: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Adapters View */}
                     {view === 'adapters' && (
-                        <div className="space-y-8 animate-in fade-in duration-500 h-full flex flex-col">
-                            <div className="shrink-0 flex justify-between items-end">
-                                <div>
-                                    <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none italic">HONORING <span className="text-orange-500">ADAPTERS</span></h1>
-                                    <p className="text-slate-500 text-[11px] font-black uppercase tracking-[0.4em] mt-2 ml-1">MANAGE EXTERNAL FULFILLMENT AGENTS (PERSISTENT)</p>
-                                </div>
+                        <div className="space-y-8 animate-fade-in">
+                            <div>
+                                <h1 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tight">
+                                    Honoring <span className="text-gradient">Adapters</span>
+                                </h1>
+                                <p className="text-slate-500 text-[11px] font-bold uppercase tracking-widest mt-2">External Fulfillment Agents</p>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-12 overflow-y-auto custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
                                 {adapters.map((adapter) => (
-                                    <div key={adapter.type} className={`p-8 rounded-[2.5rem] border transition-all duration-300 group relative overflow-hidden flex flex-col ${adapter.enabled ? 'bg-[#090e1a] border-white/[0.04] shadow-xl' : 'bg-black/20 border-white/[0.02] opacity-60'}`}>
-                                        <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-all transform scale-150 rotate-12 pointer-events-none">
-                                            <Package size={80} />
-                                        </div>
-
-                                        <div className="flex items-start justify-between mb-6">
-                                            <div className="flex flex-col">
-                                                <h3 className="text-xl font-black text-white tracking-tight leading-none italic uppercase">{adapter.name}</h3>
-                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">TYPE::{adapter.type}</p>
+                                    <div key={adapter.type} className={`glass-card p-6 group animate-slide-up ${!adapter.enabled ? 'opacity-50' : ''}`}>
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div>
+                                                <h3 className="text-lg font-black text-white uppercase">{adapter.name}</h3>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">TYPE::{adapter.type}</p>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => setEditingAdapter(adapter)}
-                                                    className="p-3 rounded-2xl bg-white/5 text-slate-400 hover:bg-orange-500/20 hover:text-orange-400 transition-all border border-white/5"
-                                                    title="Configure"
-                                                >
-                                                    <Edit3 size={18} />
+                                                <button onClick={() => setEditingAdapter(adapter)} className="p-2 rounded-xl bg-white/5 text-slate-400 hover:bg-cyan-500/20 hover:text-cyan-400 transition-all">
+                                                    <Edit3 size={16} />
                                                 </button>
-                                                <button
-                                                    onClick={() => validateAdapter(adapter.type)}
-                                                    className={`p-3 rounded-2xl transition-all ${isValidating === adapter.type ? 'bg-orange-500 text-white animate-spin' : 'bg-white/5 text-slate-400 hover:bg-orange-500/20 hover:text-orange-400'} border border-white/5`}
-                                                    title="Re-validate"
-                                                >
-                                                    <RefreshCw size={18} />
+                                                <button onClick={() => validateAdapter(adapter.type)} className="p-2 rounded-xl bg-white/5 text-slate-400 hover:bg-orange-500/20 hover:text-orange-400 transition-all">
+                                                    <RefreshCw size={16} />
                                                 </button>
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col gap-4 mb-8">
-                                            <div className="flex items-center justify-between">
-                                                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${adapter.enabled ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${adapter.enabled ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                                                    {adapter.enabled ? 'OPERATIONAL' : 'DEACTIVATED'}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex flex-col gap-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <Calendar size={12} className="text-slate-600" />
-                                                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">LAST VALIDATION</span>
-                                                    </div>
-                                                    <span className="text-[10px] font-mono text-slate-400">
-                                                        {adapter.lastValidatedAt ? new Date(adapter.lastValidatedAt).toLocaleTimeString() : 'AWAITING'}
-                                                    </span>
-                                                </div>
-
-                                                {adapter.configParams && Object.keys(adapter.configParams).length > 0 && (
-                                                    <div className="space-y-2 mt-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <FileSearch size={12} className="text-slate-600" />
-                                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">LIVE CONFIG</span>
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {Object.entries(adapter.configParams).map(([key, val]) => (
-                                                                <div key={key} className="p-2 rounded-lg bg-black/40 border border-white/[0.03] flex flex-col">
-                                                                    <span className="text-[8px] font-black text-slate-500 uppercase leading-none mb-1">{key}</span>
-                                                                    <span className="text-[10px] font-mono text-slate-300 truncate max-w-[140px] leading-none">{val as string}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
+                                        <div className={`badge ${adapter.enabled ? 'badge-success' : 'badge-error'} mb-4`}>
+                                            <div className={`w-1.5 h-1.5 rounded-full ${adapter.enabled ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                            {adapter.enabled ? 'Operational' : 'Offline'}
                                         </div>
 
-                                        <div className="mt-auto pt-6 border-t border-white/5 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <Shield size={14} className="text-emerald-500/40" />
-                                                <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest italic">MECHANICAL TRUST</span>
+                                        {adapter.configParams && Object.keys(adapter.configParams).length > 0 && (
+                                            <div className="space-y-2 mb-4">
+                                                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Config</span>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {Object.entries(adapter.configParams).slice(0, 2).map(([key, val]) => (
+                                                        <div key={key} className="p-2 rounded-lg bg-black/30 border border-white/5">
+                                                            <span className="text-[8px] font-bold text-slate-500 uppercase block">{key}</span>
+                                                            <span className="text-[10px] mono-value text-slate-300 truncate block max-w-[100px]">{val as string}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
+                                        )}
+
+                                        <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-slate-600 uppercase">Last: {adapter.lastValidatedAt ? new Date(adapter.lastValidatedAt).toLocaleTimeString() : 'Never'}</span>
                                             <button
                                                 onClick={() => toggleAdapter(adapter.type)}
-                                                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-[12px] uppercase tracking-widest transition-all ${adapter.enabled ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20' : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20'}`}
+                                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold uppercase transition-all ${adapter.enabled ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}`}
                                             >
-                                                <Power size={14} />
-                                                {adapter.enabled ? 'DEACTIVATE' : 'ACTIVATE'}
+                                                <Power size={12} />
+                                                {adapter.enabled ? 'Disable' : 'Enable'}
                                             </button>
                                         </div>
                                     </div>
@@ -724,95 +915,36 @@ const App: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Merchants/Honoring View */}
                     {view === 'merchants' && (
-                        <div className="w-full max-w-[900px] mx-auto min-h-full flex flex-col justify-center animate-in slide-in-from-bottom-6 duration-500 pb-16 px-4">
-                            <div className="p-8 lg:p-10 rounded-[2.5rem] bg-black/40 backdrop-blur-3xl border border-white/[0.08] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)] relative overflow-hidden group">
-                                {lastSpendResult ? (
-                                    <div className="flex flex-col items-center justify-center animate-in zoom-in-95 duration-500 space-y-8 p-4 text-center">
-                                        <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(16,185,129,0.3)] border-4 border-emerald-500/20 shrink-0">
-                                            <Check size={32} className="text-white" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase leading-none">Flow Authorized</h2>
-                                            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] opacity-80">Settlement Verified via SOVR Authority</p>
-                                        </div>
-                                        <div className="w-full max-w-sm bg-black/50 border border-white/10 rounded-[1.5rem] p-6 space-y-4 text-left shadow-inner">
-                                            <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Units Consumed</span>
-                                                <span className="text-xl font-black text-emerald-400 mono">${unitAmount}</span>
-                                            </div>
-                                            <div className="space-y-3">
-                                                <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest block">Redemption Proof</span>
-                                                <div className="p-4 bg-white/5 rounded-xl text-center mono text-lg font-black text-white tracking-[0.2em] border border-white/10 shadow-lg truncate">{lastSpendResult.value.code}</div>
-                                                <p className="text-[11px] font-bold text-slate-400 italic leading-relaxed text-center px-4">{lastSpendResult.value.redemptionInstructions}</p>
-                                            </div>
-                                        </div>
-                                        <button onClick={() => setLastSpendResult(null)} className="px-8 py-3 bg-orange-600 hover:bg-orange-500 text-white font-black text-sm rounded-xl transition-all uppercase tracking-[0.3em] active:scale-95">Initiate New Intent</button>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-8">
-                                        <div className="text-center">
-                                            <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase leading-tight">Universal Honoring</h2>
-                                            <p className="text-slate-500 text-[11px] font-black uppercase tracking-[0.4em] mt-2 opacity-60">Converting Attestation to Reality</p>
-                                        </div>
-                                        <div className="grid grid-cols-12 gap-8">
-                                            <div className="col-span-12 lg:col-span-5 space-y-4">
-                                                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Select Agent</h3>
-                                                <div className="flex flex-col gap-3">
-                                                    {adapters.map(m => (
-                                                        <button
-                                                            key={m.type}
-                                                            onClick={() => m.enabled && setSelectedMerchant(m.type as MerchantType)}
-                                                            disabled={!m.enabled}
-                                                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-4 text-left relative overflow-hidden group ${!m.enabled ? 'opacity-30 grayscale cursor-not-allowed border-white/5' : selectedMerchant === m.type ? 'bg-orange-600 border-orange-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/20'}`}
-                                                        >
-                                                            <div className="absolute top-0 right-0 p-3 opacity-[0.05] group-hover:opacity-[0.1] transition-all transform scale-125 rotate-6 pointer-events-none">
-                                                                <ShoppingCart size={36} />
-                                                            </div>
-                                                            <div className={`p-2.5 rounded-lg relative z-10 ${selectedMerchant === m.type ? 'bg-white/20' : 'bg-white/5'}`}><ShoppingCart size={20} /></div>
-                                                            <div className="relative z-10">
-                                                                <span className="text-[14px] font-black uppercase tracking-widest block leading-none">{m.name.split(' ')[0]}</span>
-                                                                {!m.enabled && <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest mt-1 block">OFFLINE</span>}
-                                                            </div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="col-span-12 lg:col-span-7 flex flex-col gap-6">
-                                                <div className="p-6 bg-black/40 border border-white/5 rounded-[2rem] shadow-inner space-y-6">
-                                                    <div className="space-y-4">
-                                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block ml-1">Consumption Anchor</label>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {['GROCERY', 'FUEL', 'MOBILE', 'HOUSING', 'MEDICAL'].map(a => (
-                                                                <button key={a} onClick={() => setSelectedAnchor(a as AnchorType)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${selectedAnchor === a ? 'bg-orange-500/20 border-orange-500 text-orange-300' : 'bg-white/5 border-transparent text-slate-600 hover:bg-white/10'}`}>{a}</button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                    <div className="space-y-4">
-                                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block ml-1">Units (USD Equiv.)</label>
-                                                        <div className="relative">
-                                                            <span className="absolute inset-y-0 left-6 flex items-center text-orange-500 font-black text-3xl">$</span>
-                                                            <input type="number" value={unitAmount} onChange={(e) => setUnitAmount(e.target.value)} className="w-full bg-slate-900 border border-white/10 rounded-2xl py-4 pl-14 pr-6 text-3xl font-black text-white focus:outline-none focus:border-orange-500/50 transition-all text-center mono shadow-inner" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <button onClick={handleSpendCredit} disabled={isClearing || !adapters.find(a => a.type === selectedMerchant)?.enabled} className="group relative w-full py-6 bg-gradient-to-r from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 disabled:opacity-20 text-white font-black text-xl rounded-2xl transition-all shadow-xl flex items-center justify-center gap-4 active:scale-[0.98] uppercase tracking-[0.2em] overflow-hidden">
-                                                    <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-[-20deg]" />
-                                                    {isClearing ? <RefreshCw className="animate-spin" size={24} /> : <Zap size={24} />}
-                                                    <span>Execute Trust Flow</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        <HonoringTerminal 
+                            adapters={adapters}
+                            isClearing={isClearing}
+                            lastSpendResult={lastSpendResult}
+                            onSpend={handleSpendCredit}
+                            onClearResult={() => setLastSpendResult(null)}
+                        />
+                    )}
+
+                    {/* About/System View */}
+                    {view === 'about' && (
+                        <SystemArchitectureDoc />
                     )}
                 </div>
             </main>
 
             {DetailModal()}
             {ConfigModal()}
+            {showHistoryModal && <HistoryModal onClose={() => setShowHistoryModal(false)} userId="user_demo" />}
+            {showAttestationModal && (
+                <AttestationModal 
+                    onClose={() => setShowAttestationModal(false)}
+                    onAttest={handleFunding}
+                    walletAddress={walletAddress}
+                    isWalletConnected={isWalletConnected}
+                    onConnectWallet={connectWallet}
+                />
+            )}
         </div>
     );
 };
