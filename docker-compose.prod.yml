@@ -25,12 +25,9 @@ services:
       - seccomp=unconfined
     environment:
       - NODE_ENV=production
-      - TB_ADDRESS=172.18.0.2:3000
+      - TB_ADDRESS=tigerbeetle:3000
       - DATABASE_URL=postgres://sovr_admin:sovereignty_is_mechanical@postgres:5432/sovr_narrative
       - POSTGRES_URL=postgres://sovr_admin:sovereignty_is_mechanical@postgres:5432/sovr_narrative
-    volumes:
-      - ./server.ts:/app/val/server.ts
-      - ./client.ts:/app/val/clearing/tigerbeetle/client.ts
     depends_on:
       - tigerbeetle
       - postgres
